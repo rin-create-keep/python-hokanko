@@ -1,10 +1,13 @@
 num = int(input("数字を入力してください"))
 is_num = False
-for i in range(2, int(num**0.5)+1):
-    if num % i == 0:
-        break
+if num <= 1:
+    s_num = False
 else:
-    is_num = True
+    for i in range(2, int(num**0.5)+1):
+        if num % i == 0:
+            break
+    else:
+        is_num = True
     
 if is_num:
     print("素数です")
