@@ -18,17 +18,17 @@ while True:
         print(f"\nQ{i}: {q['q']}")
         ans = input("〇☓どちらかを入力してください:").strip().lower()
         if ans == q['a']:
-            print("✅ 正解！")
+            print("正解！")
             score += 1
         else:
-            print(f"❌ 不正解！ 正解は「{q['a']}」でした。")
+            print(f"不正解！ 正解は「{q['a']}」でした。")
 
     # 正答率を計算
     percent = score / 3
     print(f"\n今回の正答率: {percent*100}%")
 
     # 50％超えたら終了
-    if score > 50:
+    if percent > 0.5:  # 正答率が50%より大きいとき
         print("おめでとう！正答率が50％を超えました")
         break
     else:
