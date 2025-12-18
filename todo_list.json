@@ -350,5 +350,53 @@
     "dl": null,
     "status": "未",
     "created_at": "2025-12-18 14:42:53"
+  },
+  {
+    "title": "LINE公式アカウント設定",
+    "cat": "タスク",
+    "prio": 3,
+    "dl": null,
+    "status": "未",
+    "created_at": "2025-12-18 14:43:15"
+  },
+  {
+    "title": "Instagramアカウント設定",
+    "cat": "タスク",
+    "prio": 3,
+    "dl": null,
+    "status": "未",
+    "created_at": "2025-12-18 14:43:15"
+  },
+  {
+    "title": "TIKTOKアカウント設定",
+    "cat": "タスク",
+    "prio": 3,
+    "dl": null,
+    "status": "未",
+    "created_at": "2025-12-18 14:43:15"
+  },
+  {
+    "title": "スレッズアカウント設定",
+    "cat": "タスク",
+    "prio": 3,
+    "dl": null,
+    "status": "未",
+    "created_at": "2025-12-18 14:43:15"
+  },
+  {
+    "title": "TikToKサムネ作成",
+    "cat": "タスク",
+    "prio": 3,
+    "dl": null,
+    "status": "未",
+    "created_at": "2025-12-18 14:43:15"
+  },
+  {
+    "title": "次回日程調整",
+    "cat": "スケジュール",
+    "prio": 3,
+    "dl": null,
+    "status": "未",
+    "created_at": "2025-12-18 14:43:15"
   }
 ]
