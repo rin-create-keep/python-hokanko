@@ -1,3 +1,5 @@
+Noの左にある項目を消したい。どのような修正をしたらいいか
+
 # app.py
 import streamlit as st
 import pandas as pd
@@ -118,16 +120,19 @@ def normalize_task_for_display(t: Dict) -> Dict:
 
 def tasks_to_df(tasks: List[Dict]) -> pd.DataFrame:
     rows = []
-    for t in tasks:
+    for i, t in enumerate(tasks, start=1):
         rows.append({
+            "No": i,
             "タイトル": t.get("title", ""),
             "カテゴリ": t.get("cat", "未分類"),
             "優先度": PRIORITY_LABELS.get(int(t.get("prio", 3)), "中"),
+            "prio_int": int(t.get("prio", 3)) if t.get("prio", None) is not None else 3,
             "期限": t.get("dl") if t.get("dl") else "----------",
             "状態": t.get("status", "未"),
             "created_at": t.get("created_at", "")
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    return df
 
 def validate_date_str(s: str) -> bool:
     if not s:
@@ -326,65 +331,67 @@ display_tasks = sort_display(display_tasks)
 
 # Build dataframe and show
 df = tasks_to_df(display_tasks)
-df.index = range(1, len(df) + 1)
-
-
 if df.empty:
     st.info("タスクはありません。")
 else:
     # show without the helper 'prio_int' column
     show_df = df[["No","タイトル","カテゴリ","優先度","期限","状態","created_at"]]
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=False   # ← index を表示
-    )
-
-st.write("Streamlit version:", st.__version__)
+    st.dataframe(show_df, use_container_width=True)
 
 # -----------------------
 # 複数選択（Noベース）
 # -----------------------
-selected_indexes = st.multiselect(
-    "操作するタスク番号を選択（複数可）",
-    options=df.index.tolist()
-)
+no_to_index = {row["No"]: idx for idx, row in enumerate(df.to_dict(orient="records"))}
+available_nos = list(no_to_index.keys())
+selected_nos = st.multiselect("操作するタスクNoを選択（複数可）", options=available_nos, default=[])
 
 # 完了
 if st.button("複数完了"):
-    if not selected_indexes:
+    if not selected_nos:
         st.warning("少なくとも1つ選択してください。")
     else:
         latest, sha = github_get_file()
         current = latest or []
 
-        for idx in selected_indexes:
-            real_idx = idx - 1
-            if 0 <= real_idx < len(current):
-                current[real_idx]["status"] = "完"
+        for n in selected_nos:
+            display_idx = no_to_index.get(n)
+            if display_idx is None:
+                continue
 
-        if github_put_file(current, message="Mark tasks done", sha=sha):
-            st.success(f"{len(selected_indexes)} 件を完了にしました。")
+            task = display_tasks[display_idx]
+
+            for i, t in enumerate(current):
+                if (
+                    t["title"] == task["title"]
+                    and t.get("created_at") == task.get("created_at")
+                ):
+                    current[i]["status"] = "完"
+                    break
+
+        ok = github_put_file(current, message=f"Mark {len(selected_nos)} tasks as done", sha=sha)
+        if ok:
+            st.success(f"{len(selected_nos)} 件を完了にしました。")
             st.session_state.todos_raw = current
+            st.session_state.github_sha = github_get_file()[1]
             st.rerun()
 
 # 削除
 if st.button("複数削除"):
-    if not selected_indexes:
+    if not selected_nos:
         st.warning("少なくとも1つ選択してください。")
     else:
         latest, sha = github_get_file()
         current = latest or []
-
-        # index は 1 始まり → list は 0 始まり
-        for idx in sorted(selected_indexes, reverse=True):
-            real_idx = idx - 1
-            if 0 <= real_idx < len(current):
-                current.pop(real_idx)
-
-        if github_put_file(current, message="Delete tasks", sha=sha):
-            st.success(f"{len(selected_indexes)} 件を削除しました。")
+        # build new list excluding selected indices
+        sel_idxs = sorted([n-1 for n in selected_nos], reverse=True)
+        for idx in sel_idxs:
+            if 0 <= idx < len(current):
+                current.pop(idx)
+        ok = github_put_file(current, message=f"Delete {len(selected_nos)} tasks", sha=sha)
+        if ok:
+            st.success(f"{len(selected_nos)} 件を削除しました。")
             st.session_state.todos_raw = current
+            st.session_state.github_sha = github_get_file()[1]
             st.rerun()
 
 # 複数更新（対話式）
@@ -394,27 +401,38 @@ upd_prio = st.selectbox("新優先度 (空で変更しない)", options=["","1 -
 upd_dl = st.text_input("新期限 (YYYY-MM-DD、空は変更しない)")
 
 if st.button("複数更新実行"):
-    if not selected_indexes:
+    if not selected_nos:
         st.warning("少なくとも1つ選択してください。")
     else:
         latest, sha = github_get_file()
         current = latest or []
         updated = 0
-
-        for idx in selected_indexes:
-            real_idx = idx - 1
-            if 0 <= real_idx < len(current):
+        for n in selected_nos:
+            idx = n - 1
+            if 0 <= idx < len(current):
+                fields_changed = False
                 if upd_cat:
-                    current[real_idx]["cat"] = upd_cat
-                if upd_prio:
-                    current[real_idx]["prio"] = int(upd_prio.split(" - ")[0])
-                if upd_dl and validate_date_str(upd_dl):
-                    current[real_idx]["dl"] = upd_dl
-                updated += 1
+                    current[idx]["cat"] = upd_cat
+                    fields_changed = True
+                if upd_prio and upd_prio != "":
+                    current[idx]["prio"] = int(upd_prio.split(" - ")[0])
+                    fields_changed = True
 
-        if github_put_file(current, message="Update tasks", sha=sha):
+                if upd_dl:
+                    if validate_date_str(upd_dl):
+                        current[idx]["dl"] = upd_dl
+                        fields_changed = True
+                    else:
+                        st.error(f"{upd_dl} は存在しない日付です。修正してください。")
+                        st.stop()
+
+                if fields_changed:
+                    updated += 1
+        ok = github_put_file(current, message=f"Update {updated} tasks", sha=sha)
+        if ok:
             st.success(f"{updated} 件を更新しました。")
             st.session_state.todos_raw = current
+            st.session_state.github_sha = github_get_file()[1]
             st.rerun()
 
 # 検索クリア
