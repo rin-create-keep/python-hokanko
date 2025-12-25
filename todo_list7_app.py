@@ -1,5 +1,3 @@
-Noの左にある項目を消したい。どのような修正をしたらいいか
-
 # app.py
 import streamlit as st
 import pandas as pd
@@ -443,3 +441,4 @@ if st.button("検索クリア"):
 # 小さなメッセージ
 if st.session_state.get("ui_message", ""):
     st.info(st.session_state["ui_message"])
+
