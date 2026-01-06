@@ -88,7 +88,7 @@ def get_llm_response(user_input: str) -> str:
     # GPT
     if model.startswith("gpt"):
         client = OpenAI()
-        stream = client.chat.completions.create(
+        client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=st.session_state.temperature,
