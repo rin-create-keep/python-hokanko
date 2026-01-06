@@ -29,6 +29,10 @@ MODEL_PRICES = {
     }
 }
 
+def get_message_counts(text: str) -> int:
+    if not text:
+        return 0
+    return max(1, len(text) // 4)
 
 def init_page():
     st.set_page_config(
@@ -67,16 +71,6 @@ def select_model():
         st.session_state.model_name = "claude-3-5-sonnet-20240620"
     else:
         st.session_state.model_name = "gemini-1.5-pro-latest"
-
-
-def init_chain():
-    st.session_state.llm = select_model()
-    prompt = ChatPromptTemplate.from_messages([
-        *st.session_state.message_history,
-        ("user", "{user_input}")  # ここにあとでユーザーの入力が入る
-    ])
-    output_parser = StrOutputParser()
-    return prompt | st.session_state.llm | output_parser
 
 
 def get_llm_response(user_input: str) -> str:
@@ -131,10 +125,6 @@ def get_llm_response(user_input: str) -> str:
             if chunk.text:
                 full += chunk.text
                 yield chunk.text
-        return full
-
-    # フォールバック（全モデル共通）
-    return max(1, len(text) // 4)
 
 
 def calc_and_display_costs():
@@ -169,7 +159,6 @@ def calc_and_display_costs():
 def main():
     init_page()
     init_messages()
-    chain = init_chain()
 
     # チャット履歴の表示 (第2章から少し位置が変更になっているので注意)
     for role, message in st.session_state.get("message_history", []):
