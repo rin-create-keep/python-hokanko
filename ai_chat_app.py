@@ -1,4 +1,8 @@
-import tiktoken
+try:
+    import tiktoken
+except ImportError:
+    tiktoken = None
+
 import streamlit as st
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -99,14 +103,17 @@ def init_chain():
 def get_message_counts(text):
     if "gemini" in st.session_state.model_name:
         return st.session_state.llm.get_num_tokens(text)
+
+    if tiktoken is None:
+        # フォールバック（簡易カウント）
+        return len(text.split())
+
+    if "gpt" in st.session_state.model_name:
+        encoding = tiktoken.encoding_for_model(st.session_state.model_name)
     else:
-        # Claude 3 はトークナイザーを公開していないので、tiktoken を使ってトークン数をカウント
-        # これは正確なトークン数ではないが、大体のトークン数をカウントすることができる
-        if "gpt" in st.session_state.model_name:
-            encoding = tiktoken.encoding_for_model(st.session_state.model_name)
-        else:
-            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")  # 仮のものを利用
-        return len(encoding.encode(text))
+        encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+
+    return len(encoding.encode(text))
 
 
 def calc_and_display_costs():
@@ -119,6 +126,7 @@ def calc_and_display_costs():
             output_count += token_count
         else:
             input_count += token_count
+
 def total_token_count():
     return sum(
         get_message_counts(msg)
@@ -231,7 +239,6 @@ def calc_and_display_costs(last_input=None, last_output=None):
             - Output: {get_message_counts(last_output)} tokens
             """
         )
-
 
 if __name__ == '__main__':
     main()
