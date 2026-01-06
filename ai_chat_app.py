@@ -159,10 +159,12 @@ def calc_and_display_costs():
 def main():
     init_page()
     init_messages()
+    select_model()  # ← モデル選択と温度設定を有効化します
 
-    # チャット履歴の表示 (第2章から少し位置が変更になっているので注意)
+    # チャット履歴の表示
     for role, message in st.session_state.get("message_history", []):
-        st.chat_message(role).markdown(message)
+        if role != "system":
+            st.chat_message(role).markdown(message)
 
     # ユーザーの入力を監視
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -170,10 +172,11 @@ def main():
 
         # LLMの返答を Streaming 表示する
         with st.chat_message("assistant"):
+            response_placeholder = st.empty() # 上書き用のエリアを作成
             response_text = ""
             for token in get_llm_response(user_input):
                 response_text += token
-                st.markdown(response_text)
+                response_placeholder.markdown(response_text) # 逐次更新
 
         # チャット履歴に追加
         st.session_state.message_history.append(("user", user_input))
@@ -181,7 +184,6 @@ def main():
 
     # コストを計算して表示
     calc_and_display_costs()
-
 
 if __name__ == '__main__':
     main()
