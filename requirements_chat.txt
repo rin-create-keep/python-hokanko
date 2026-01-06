@@ -3,4 +3,5 @@ openai>=1.0.0
 anthropic
 google-generativeai
 python-dotenv
+requests
 
