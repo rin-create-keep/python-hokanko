@@ -1,4 +1,3 @@
-import tiktoken
 import streamlit as st
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -96,17 +95,24 @@ def init_chain():
     return prompt | st.session_state.llm | output_parser
 
 
-def get_message_counts(text):
+def get_message_counts(text: str) -> int:
+    """
+    Streamlit Cloud / Python 3.13 でも確実に動く簡易トークンカウント
+    ・日本語：1文字 ≒ 1トークン
+    ・英語：4文字 ≒ 1トークン
+    """
+    if not text:
+        return 0
+
+    # Gemini は公式メソッドが使える場合のみ利用
     if "gemini" in st.session_state.model_name:
-        return st.session_state.llm.get_num_tokens(text)
-    else:
-        # Claude 3 はトークナイザーを公開していないので、tiktoken を使ってトークン数をカウント
-        # これは正確なトークン数ではないが、大体のトークン数をカウントすることができる
-        if "gpt" in st.session_state.model_name:
-            encoding = tiktoken.encoding_for_model(st.session_state.model_name)
-        else:
-            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")  # 仮のものを利用
-        return len(encoding.encode(text))
+        try:
+            return st.session_state.llm.get_num_tokens(text)
+        except Exception:
+            pass
+
+    # フォールバック（全モデル共通）
+    return max(1, len(text) // 4)
 
 
 def calc_and_display_costs():
