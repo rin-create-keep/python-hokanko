@@ -1,8 +1,4 @@
-try:
-    import tiktoken
-except ImportError:
-    tiktoken = None
-
+import tiktoken
 import streamlit as st
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -103,17 +99,14 @@ def init_chain():
 def get_message_counts(text):
     if "gemini" in st.session_state.model_name:
         return st.session_state.llm.get_num_tokens(text)
-
-    if tiktoken is None:
-        # フォールバック（簡易カウント）
-        return len(text.split())
-
-    if "gpt" in st.session_state.model_name:
-        encoding = tiktoken.encoding_for_model(st.session_state.model_name)
     else:
-        encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
-
-    return len(encoding.encode(text))
+        # Claude 3 はトークナイザーを公開していないので、tiktoken を使ってトークン数をカウント
+        # これは正確なトークン数ではないが、大体のトークン数をカウントすることができる
+        if "gpt" in st.session_state.model_name:
+            encoding = tiktoken.encoding_for_model(st.session_state.model_name)
+        else:
+            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")  # 仮のものを利用
+        return len(encoding.encode(text))
 
 
 def calc_and_display_costs():
@@ -126,31 +119,6 @@ def calc_and_display_costs():
             output_count += token_count
         else:
             input_count += token_count
-
-def total_token_count():
-    return sum(
-        get_message_counts(msg)
-        for _, msg in st.session_state.message_history
-    )
-
-def summarize_messages():
-    summary_prompt = ChatPromptTemplate.from_messages([
-        ("system", "以下はこれまでの会話です。要点を簡潔にまとめてください。"),
-        *st.session_state.message_history
-    ])
-
-    summarizer = ChatOpenAI(
-        temperature=0,
-        model_name="gpt-3.5-turbo"
-    )
-
-    chain = summary_prompt | summarizer | StrOutputParser()
-    summary = chain.invoke({})
-
-    # system message に要約を格納し直す
-    st.session_state.message_history = [
-        ("system", f"これまでの会話要約:\n{summary}")
-    ]
 
     # 初期状態で System Message のみが履歴に入っている場合はまだAPIコールが行われていない
     if len(st.session_state.message_history) == 1:
@@ -172,73 +140,28 @@ def summarize_messages():
 
 def main():
     init_page()
-    init_system_prompt()
     init_messages()
     chain = init_chain()
 
-    for role, message in st.session_state.message_history:
+    # チャット履歴の表示 (第2章から少し位置が変更になっているので注意)
+    for role, message in st.session_state.get("message_history", []):
         st.chat_message(role).markdown(message)
 
-    MAX_TOKENS = 4000
-    if total_token_count() > MAX_TOKENS:
-        summarize_messages()
-        st.sidebar.warning("会話が長くなったため要約しました")
-
-    last_input = None
-    last_output = None
-
+    # ユーザーの入力を監視
     if user_input := st.chat_input("聞きたいことを入力してね！"):
-        last_input = user_input
-        st.chat_message("user").markdown(user_input)
+        st.chat_message('user').markdown(user_input)
 
-        with st.chat_message("ai"):
-            response = st.write_stream(
-                chain.stream({"user_input": user_input})
-            )
+        # LLMの返答を Streaming 表示する
+        with st.chat_message('ai'):
+            response = st.write_stream(chain.stream({"user_input": user_input}))
 
-        last_output = response
+        # チャット履歴に追加
         st.session_state.message_history.append(("user", user_input))
         st.session_state.message_history.append(("ai", response))
 
-    calc_and_display_costs(last_input, last_output)
-
     # コストを計算して表示
-def calc_and_display_costs(last_input=None, last_output=None):
-    total_input_tokens = 0
-    total_output_tokens = 0
+    calc_and_display_costs()
 
-    for role, message in st.session_state.message_history:
-        tokens = get_message_counts(message)
-        if role == "ai":
-            total_output_tokens += tokens
-        else:
-            total_input_tokens += tokens
-
-    if len(st.session_state.message_history) == 1:
-        return
-
-    input_price = MODEL_PRICES["input"][st.session_state.model_name]
-    output_price = MODEL_PRICES["output"][st.session_state.model_name]
-
-    st.sidebar.markdown("## 💰 Costs")
-
-    st.sidebar.markdown(
-        f"""
-        **Total**
-        - Input: {total_input_tokens} tokens (${total_input_tokens * input_price:.5f})
-        - Output: {total_output_tokens} tokens (${total_output_tokens * output_price:.5f})
-        - **Total cost: ${((total_input_tokens * input_price) + (total_output_tokens * output_price)):.5f}**
-        """
-    )
-
-    if last_input and last_output:
-        st.sidebar.markdown("### 🧾 Last Request")
-        st.sidebar.markdown(
-            f"""
-            - Input: {get_message_counts(last_input)} tokens
-            - Output: {get_message_counts(last_output)} tokens
-            """
-        )
 
 if __name__ == '__main__':
     main()
