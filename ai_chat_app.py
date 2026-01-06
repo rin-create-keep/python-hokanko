@@ -18,13 +18,13 @@ MODEL_PRICES = {
     "input": {
         "gpt-3.5-turbo": 0.5 / 1_000_000,
         "gpt-4o": 5 / 1_000_000,
-        "claude-3-5-sonnet-latest": 3 / 1_000_000, # ここを修正
+        "claude-3-5-sonnet-20241022": 3 / 1_000_000, # 正式名に変更
         "gemini-1.5-pro-latest": 3.5 / 1_000_000
     },
     "output": {
         "gpt-3.5-turbo": 1.5 / 1_000_000,
         "gpt-4o": 15 / 1_000_000,
-        "claude-3-5-sonnet-latest": 15 / 1_000_000, # ここを修正
+        "claude-3-5-sonnet-20241022": 15 / 1_000_000, # 正式名に変更
         "gemini-1.5-pro-latest": 10.5 / 1_000_000
     }
 }
@@ -53,8 +53,6 @@ def init_messages():
 
 
 def select_model():
-    # スライダーを追加し、temperatureを0から2までの範囲で選択可能にする
-    # 初期値は0.0、刻み幅は0.01とする
     st.session_state.temperature = st.sidebar.slider(
         "Temperature", 0.0, 2.0, 0.0, 0.01
     )
@@ -68,8 +66,8 @@ def select_model():
     elif model == "GPT-4":
         st.session_state.model_name = "gpt-4o"
     elif model == "Claude 3.5 Sonnet":
-        # 修正：より一般的な 'latest' もしくは最新の '20241022' に変更
-        st.session_state.model_name = "claude-3-5-sonnet-latest"
+        # 確実に存在する日付付きIDを指定
+        st.session_state.model_name = "claude-3-5-sonnet-20241022"
     else:
         st.session_state.model_name = "gemini-1.5-pro-latest"
 
