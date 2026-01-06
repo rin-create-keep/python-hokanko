@@ -119,6 +119,30 @@ def calc_and_display_costs():
             output_count += token_count
         else:
             input_count += token_count
+def total_token_count():
+    return sum(
+        get_message_counts(msg)
+        for _, msg in st.session_state.message_history
+    )
+
+def summarize_messages():
+    summary_prompt = ChatPromptTemplate.from_messages([
+        ("system", "以下はこれまでの会話です。要点を簡潔にまとめてください。"),
+        *st.session_state.message_history
+    ])
+
+    summarizer = ChatOpenAI(
+        temperature=0,
+        model_name="gpt-3.5-turbo"
+    )
+
+    chain = summary_prompt | summarizer | StrOutputParser()
+    summary = chain.invoke({})
+
+    # system message に要約を格納し直す
+    st.session_state.message_history = [
+        ("system", f"これまでの会話要約:\n{summary}")
+    ]
 
     # 初期状態で System Message のみが履歴に入っている場合はまだAPIコールが行われていない
     if len(st.session_state.message_history) == 1:
@@ -140,6 +164,7 @@ def calc_and_display_costs():
 
 def main():
     init_page()
+    init_system_prompt()   # ← 追加
     init_messages()
     chain = init_chain()
 
@@ -148,6 +173,11 @@ def main():
         st.chat_message(role).markdown(message)
 
     # ユーザーの入力を監視
+    MAX_TOKENS = 4000  # 好きな値に調整
+
+    if total_token_count() > MAX_TOKENS:
+        summarize_messages()
+        st.sidebar.warning("会話が長くなったため要約しました")
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         st.chat_message('user').markdown(user_input)
 
@@ -160,8 +190,67 @@ def main():
         st.session_state.message_history.append(("ai", response))
 
     # コストを計算して表示
-    calc_and_display_costs()
+    def calc_and_display_costs(last_input=None, last_output=None):
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    for role, message in st.session_state.message_history:
+        tokens = get_message_counts(message)
+        if role == "ai":
+            total_output_tokens += tokens
+        else:
+            total_input_tokens += tokens
+
+    if len(st.session_state.message_history) == 1:
+        return
+
+    input_price = MODEL_PRICES["input"][st.session_state.model_name]
+    output_price = MODEL_PRICES["output"][st.session_state.model_name]
+
+    total_input_cost = total_input_tokens * input_price
+    total_output_cost = total_output_tokens * output_price
+
+    st.sidebar.markdown("## 💰 Costs")
+
+    st.sidebar.markdown(
+        f"""
+        **Total**
+        - Input: {total_input_tokens} tokens (${total_input_cost:.5f})
+        - Output: {total_output_tokens} tokens (${total_output_cost:.5f})
+        - **Total cost: ${(total_input_cost + total_output_cost):.5f}**
+        """
+    )
+
+    if last_input and last_output:
+        in_tokens = get_message_counts(last_input)
+        out_tokens = get_message_counts(last_output)
+
+        st.sidebar.markdown("### 🧾 Last Request")
+        st.sidebar.markdown(
+            f"""
+            - Input: {in_tokens} tokens (${in_tokens * input_price:.5f})
+            - Output: {out_tokens} tokens (${out_tokens * output_price:.5f})
+            """
+        )
+
 
 
 if __name__ == '__main__':
-    main()
+    main(
+        last_input = None
+        last_output = None
+
+        if user_input := st.chat_input("聞きたいことを入力してね！"):
+            last_input = user_input
+            st.chat_message("user").markdown(user_input)
+
+        with st.chat_message("ai"):
+            response = st.write_stream(chain.stream({"user_input": user_input}))
+
+            last_output = response
+
+            st.session_state.message_history.append(("user", user_input))
+            st.session_state.message_history.append(("ai", response))
+
+            calc_and_display_costs(last_input, last_output)
+    )
