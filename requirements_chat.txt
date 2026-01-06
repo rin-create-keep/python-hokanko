@@ -3,6 +3,6 @@ openai>=1.0.0
 anthropic
 google-generativeai
 python-dotenv
-requests
-# force rebuild 2026-01-06
+
+
 
