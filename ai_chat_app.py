@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-import openai
+from openai import OpenAI
 import anthropic
 import google.generativeai as genai
 
@@ -93,7 +93,7 @@ def get_llm_response(user_input: str) -> str:
 
     # GPT
     if model.startswith("gpt"):
-        client = openai.OpenAI()
+        client = OpenAI()
         stream = client.chat.completions.create(
             model=model,
             messages=messages,
