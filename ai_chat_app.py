@@ -131,14 +131,13 @@ def calc_and_display_costs():
     output_count = 0
     input_count = 0
     for role, message in st.session_state.message_history:
-        # tiktoken でトークン数をカウント
         token_count = get_message_counts(message)
-        if role == "ai":
+        # 【修正】"ai" から "assistant" に変更
+        if role == "assistant":
             output_count += token_count
         else:
             input_count += token_count
 
-    # 初期状態で System Message のみが履歴に入っている場合はまだAPIコールが行われていない
     if len(st.session_state.message_history) == 1:
         return
 
@@ -159,30 +158,27 @@ def calc_and_display_costs():
 def main():
     init_page()
     init_messages()
-    select_model()  # ← モデル選択と温度設定を有効化します
+    select_model() 
 
-    # チャット履歴の表示
     for role, message in st.session_state.get("message_history", []):
         if role != "system":
             st.chat_message(role).markdown(message)
 
-    # ユーザーの入力を監視
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         st.chat_message("user").markdown(user_input)
 
-        # LLMの返答を Streaming 表示する
         with st.chat_message("assistant"):
-            response_placeholder = st.empty() # 上書き用のエリアを作成
+            response_placeholder = st.empty()
             response_text = ""
             for token in get_llm_response(user_input):
                 response_text += token
-                response_placeholder.markdown(response_text) # 逐次更新
+                response_placeholder.markdown(response_text)
 
         # チャット履歴に追加
         st.session_state.message_history.append(("user", user_input))
-        st.session_state.message_history.append(("ai", response_text))
+        # 【修正】"ai" から "assistant" に変更
+        st.session_state.message_history.append(("assistant", response_text))
 
-    # コストを計算して表示
     calc_and_display_costs()
 
 if __name__ == '__main__':
