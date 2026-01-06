@@ -1,11 +1,8 @@
+import os
 import streamlit as st
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-
-# models
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
+import openai
+import anthropic
+import google.generativeai as genai
 
 ###### dotenv を利用しない場合は消してください ######
 try:
@@ -54,35 +51,22 @@ def init_messages():
 def select_model():
     # スライダーを追加し、temperatureを0から2までの範囲で選択可能にする
     # 初期値は0.0、刻み幅は0.01とする
-    temperature = st.sidebar.slider(
-        "Temperature:", min_value=0.0, max_value=2.0, value=0.0, step=0.01)
+    st.session_state.temperature = st.sidebar.slider(
+        "Temperature", 0.0, 2.0, 0.0, 0.01
+    )
 
-    models = ("GPT-3.5", "GPT-4", "Claude 3.5 Sonnet", "Gemini 1.5 Pro")
-    model = st.sidebar.radio("Choose a model:", models)
+    model = st.sidebar.radio(
+        "Choose a model",
+        ("GPT-3.5", "GPT-4", "Claude 3.5 Sonnet", "Gemini 1.5 Pro")
+    )
     if model == "GPT-3.5":
         st.session_state.model_name = "gpt-3.5-turbo"
-        return ChatOpenAI(
-            temperature=temperature,
-            model_name=st.session_state.model_name
-        )
     elif model == "GPT-4":
         st.session_state.model_name = "gpt-4o"
-        return ChatOpenAI(
-            temperature=temperature,
-            model_name=st.session_state.model_name
-        )
     elif model == "Claude 3.5 Sonnet":
         st.session_state.model_name = "claude-3-5-sonnet-20240620"
-        return ChatAnthropic(
-            temperature=temperature,
-            model_name=st.session_state.model_name
-        )
-    elif model == "Gemini 1.5 Pro":
+    else:
         st.session_state.model_name = "gemini-1.5-pro-latest"
-        return ChatGoogleGenerativeAI(
-            temperature=temperature,
-            model=st.session_state.model_name
-        )
 
 
 def init_chain():
@@ -95,21 +79,59 @@ def init_chain():
     return prompt | st.session_state.llm | output_parser
 
 
-def get_message_counts(text: str) -> int:
-    """
-    Streamlit Cloud / Python 3.13 でも確実に動く簡易トークンカウント
-    ・日本語：1文字 ≒ 1トークン
-    ・英語：4文字 ≒ 1トークン
-    """
-    if not text:
-        return 0
+def get_llm_response(user_input: str) -> str:
+    model = st.session_state.model_name
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        *[
+            {"role": role, "content": msg}
+            for role, msg in st.session_state.message_history
+            if role != "system"
+        ],
+        {"role": "user", "content": user_input}
+    ]
 
-    # Gemini は公式メソッドが使える場合のみ利用
-    if "gemini" in st.session_state.model_name:
-        try:
-            return st.session_state.llm.get_num_tokens(text)
-        except Exception:
-            pass
+    # GPT
+    if model.startswith("gpt"):
+        client = openai.OpenAI()
+        stream = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=st.session_state.temperature,
+            stream=True,
+        )
+        response = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                response += chunk.choices[0].delta.content
+                yield chunk.choices[0].delta.content
+        return response
+
+    # Claude
+    if model.startswith("claude"):
+        client = anthropic.Anthropic()
+        with client.messages.stream(
+            model=model,
+            max_tokens=1024,
+            messages=messages[1:],  # systemは別扱い
+        ) as stream:
+            response = ""
+            for text in stream.text_stream:
+                response += text
+                yield text
+        return response
+
+    # Gemini
+    if model.startswith("gemini"):
+        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+        model = genai.GenerativeModel(model)
+        response = model.generate_content(user_input, stream=True)
+        full = ""
+        for chunk in response:
+            if chunk.text:
+                full += chunk.text
+                yield chunk.text
+        return full
 
     # フォールバック（全モデル共通）
     return max(1, len(text) // 4)
@@ -155,15 +177,18 @@ def main():
 
     # ユーザーの入力を監視
     if user_input := st.chat_input("聞きたいことを入力してね！"):
-        st.chat_message('user').markdown(user_input)
+        st.chat_message("user").markdown(user_input)
 
         # LLMの返答を Streaming 表示する
-        with st.chat_message('ai'):
-            response = st.write_stream(chain.stream({"user_input": user_input}))
+        with st.chat_message("assistant"):
+            response_text = ""
+            for token in get_llm_response(user_input):
+                response_text += token
+                st.markdown(response_text)
 
         # チャット履歴に追加
         st.session_state.message_history.append(("user", user_input))
-        st.session_state.message_history.append(("ai", response))
+        st.session_state.message_history.append(("ai", response_text))
 
     # コストを計算して表示
     calc_and_display_costs()
