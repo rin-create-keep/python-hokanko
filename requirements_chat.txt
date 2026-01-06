@@ -1,6 +1,5 @@
 streamlit
-langchain-core
-langchain-openai
-langchain-anthropic
-langchain-google-genai
+openai
+anthropic
+google-generativeai
 python-dotenv
