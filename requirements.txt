@@ -2,4 +2,9 @@ streamlit==1.32.2
 pandas
 requests
 
+openai>=1.0.0
+anthropic
+google-generativeai
+python-dotenv
+
 
