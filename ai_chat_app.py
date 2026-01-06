@@ -88,18 +88,18 @@ def get_llm_response(user_input: str) -> str:
     # GPT
     if model.startswith("gpt"):
         client = OpenAI()
-        client.chat.completions.create(
+        stream = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=st.session_state.temperature,
             stream=True,
         )
+
         response = ""
         for chunk in stream:
             if chunk.choices[0].delta.content:
                 response += chunk.choices[0].delta.content
                 yield chunk.choices[0].delta.content
-        return response
 
     # Claude
     if model.startswith("claude"):
