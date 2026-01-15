@@ -225,7 +225,7 @@ def select_model():
     elif model == "Claude 3.5 Sonnet":
         st.session_state.model_name = "claude-3-5-sonnet-20241022"
     else:
-        st.session_state.model_name = "gemini-1.5-pro-latest"
+        st.session_state.model_name = "gemini-1.5-pro"
 
 
 def get_llm_response(user_input: str) -> str:
@@ -272,13 +272,13 @@ def get_llm_response(user_input: str) -> str:
     # Gemini
     if model.startswith("gemini"):
         genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-        model = genai.GenerativeModel(model)
-        response = model.generate_content(user_input, stream=True)
-        full = ""
+        gemini_model = genai.GenerativeModel(model)
+        response = gemini_model.generate_content(user_input, stream=True)
+
         for chunk in response:
             if chunk.text:
-                full += chunk.text
                 yield chunk.text
+
 
 
 def calc_and_display_costs():
