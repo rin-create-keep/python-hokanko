@@ -228,62 +228,45 @@ def select_model():
         st.session_state.model_name = "gemini"
 
 
-def get_llm_response(user_input: str) -> str:
+def get_llm_response(user_input: str):
     model = st.session_state.model_name
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        *[
-            {"role": role, "content": msg}
-            for role, msg in st.session_state.message_history
-            if role != "system"
-        ],
-        {"role": "user", "content": user_input}
-    ]
 
     # GPT
     if model.startswith("gpt"):
         client = OpenAI()
         stream = client.chat.completions.create(
             model=model,
-            messages=messages,
-            temperature=st.session_state.temperature,
+            messages=[{"role": "user", "content": user_input}],
             stream=True,
         )
-
-        response = ""
         for chunk in stream:
             if chunk.choices[0].delta.content:
-                response += chunk.choices[0].delta.content
                 yield chunk.choices[0].delta.content
 
     # Claude
-    if model.startswith("claude"):
+    elif model.startswith("claude"):
         client = anthropic.Anthropic()
         with client.messages.stream(
             model=model,
             max_tokens=1024,
-            messages=messages[1:],
+            messages=[{"role": "user", "content": user_input}],
         ) as stream:
-            response = ""
             for text in stream.text_stream:
-                response += text
                 yield text
 
-    # Gemini
-if model.startswith("gemini"):
-    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+    # Gemini ✅
+    elif model.startswith("gemini"):
+        client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
 
-    response = client.models.generate_content(
-        model="models/gemini-1.5-flash",
-        contents=user_input,
-        stream=True
-    )
+        response = client.models.generate_content(
+            model="models/gemini-1.5-flash",
+            contents=user_input,
+            stream=True
+        )
 
-    for chunk in response:
-        if chunk.text:
-            yield chunk.text
-
-
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
 
 def calc_and_display_costs():
     output_count = 0
@@ -410,5 +393,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
