@@ -2,7 +2,7 @@ import os
 import streamlit as st
 from openai import OpenAI
 import anthropic
-import google.generativeai as genai
+from google import genai
 import json
 import base64
 from datetime import datetime
@@ -225,7 +225,7 @@ def select_model():
     elif model == "Claude 3.5 Sonnet":
         st.session_state.model_name = "claude-3-haiku-20240307"
     else:
-        st.session_state.model_name = "gemini-pro"
+        st.session_state.model_name = "gemini"
 
 
 def get_llm_response(user_input: str) -> str:
@@ -270,14 +270,18 @@ def get_llm_response(user_input: str) -> str:
                 yield text
 
     # Gemini
-    if model.startswith("gemini"):
-        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-        gemini_model = genai.GenerativeModel(model)
-        response = gemini_model.generate_content(user_input, stream=True)
+if model.startswith("gemini"):
+    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
 
-        for chunk in response:
-            if chunk.text:
-                yield chunk.text
+    response = client.models.generate_content(
+        model="models/gemini-1.5-flash",
+        contents=user_input,
+        stream=True
+    )
+
+    for chunk in response:
+        if chunk.text:
+            yield chunk.text
 
 
 
@@ -406,4 +410,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
