@@ -23,13 +23,13 @@ MODEL_PRICES = {
     "input": {
         "gpt-3.5-turbo": 0.5 / 1_000_000,
         "gpt-4o": 5 / 1_000_000,
-        "claude-3-5-sonnet-20241022": 3 / 1_000_000,
+        "claude-3-haiku-20240307": 3 / 1_000_000,
         "gemini-1.5-pro-latest": 3.5 / 1_000_000
     },
     "output": {
         "gpt-3.5-turbo": 1.5 / 1_000_000,
         "gpt-4o": 15 / 1_000_000,
-        "claude-3-5-sonnet-20241022": 15 / 1_000_000,
+        "claude-3-haiku-20240307": 15 / 1_000_000,
         "gemini-1.5-pro-latest": 10.5 / 1_000_000
     }
 }
@@ -223,7 +223,7 @@ def select_model():
     elif model == "GPT-4":
         st.session_state.model_name = "gpt-4o"
     elif model == "Claude 3.5 Sonnet":
-        st.session_state.model_name = "claude-3-5-sonnet-20241022"
+        st.session_state.model_name = "claude-3-haiku-20240307"
     else:
         st.session_state.model_name = "gemini-pro"
 
@@ -406,3 +406,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
