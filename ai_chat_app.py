@@ -2,7 +2,7 @@ import os
 import streamlit as st
 from openai import OpenAI
 import anthropic
-from google import genai
+from google.genai import Client
 import json
 import base64
 from datetime import datetime
@@ -255,18 +255,19 @@ def get_llm_response(user_input: str):
                 yield text
 
     # Gemini ✅
-    elif model.startswith("gemini"):
-        client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+elif model.startswith("gemini"):
+    client = Client(api_key=os.environ["GOOGLE_API_KEY"])
 
-        response = client.models.generate_content(
-            model="models/gemini-1.5-flash",
-            contents=user_input,
-            stream=True
-        )
+    response = client.models.generate_content(
+        model="models/gemini-1.5-flash",
+        contents=user_input,
+        stream=True
+    )
 
-        for chunk in response:
-            if chunk.text:
-                yield chunk.text
+    for chunk in response:
+        if chunk.text:
+            yield chunk.text
+            
 
 def calc_and_display_costs():
     output_count = 0
@@ -393,6 +394,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
