@@ -225,7 +225,7 @@ def select_model():
     elif model == "Claude 3.5 Sonnet":
         st.session_state.model_name = "claude-3-5-sonnet-20241022"
     else:
-        st.session_state.model_name = "gemini-1.5-pro"
+        st.session_state.model_name = "gemini-pro"
 
 
 def get_llm_response(user_input: str) -> str:
