@@ -5,6 +5,7 @@ import anthropic
 import google.generativeai as genai
 import json
 import base64
+from datetime import datetime
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
 
@@ -47,6 +48,52 @@ def init_page():
     st.sidebar.title("Options")
 
 
+def save_chat_history():
+    """現在の会話を履歴に保存"""
+    if "message_history" not in st.session_state or len(st.session_state.message_history) <= 1:
+        return
+    
+    if "chat_histories" not in st.session_state:
+        st.session_state.chat_histories = []
+    
+    # タイトルを最初のユーザーメッセージから生成
+    title = "New Chat"
+    for role, msg in st.session_state.message_history:
+        if role == "user":
+            title = msg[:30] + ("..." if len(msg) > 30 else "")
+            break
+    
+    # 保存
+    chat_data = {
+        "title": title,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "messages": st.session_state.message_history.copy(),
+        "model": st.session_state.get("model_name", "gpt-3.5-turbo")
+    }
+    
+    st.session_state.chat_histories.insert(0, chat_data)
+    
+    # 最大50件まで保持
+    if len(st.session_state.chat_histories) > 50:
+        st.session_state.chat_histories = st.session_state.chat_histories[:50]
+
+
+def load_chat_history(index):
+    """保存された会話を読み込む"""
+    if "chat_histories" in st.session_state and 0 <= index < len(st.session_state.chat_histories):
+        chat_data = st.session_state.chat_histories[index]
+        st.session_state.message_history = chat_data["messages"].copy()
+        st.session_state.model_name = chat_data.get("model", "gpt-3.5-turbo")
+        st.rerun()
+
+
+def delete_chat_history(index):
+    """特定の会話履歴を削除"""
+    if "chat_histories" in st.session_state and 0 <= index < len(st.session_state.chat_histories):
+        st.session_state.chat_histories.pop(index)
+        st.rerun()
+
+
 def encode_conversation(message_history):
     """会話履歴をBase64エンコード"""
     try:
@@ -75,7 +122,6 @@ def create_share_url():
     
     encoded = encode_conversation(st.session_state.message_history)
     if encoded:
-        # Streamlit Cloudなどのデプロイ先URLを使用
         base_url = st.get_option("browser.serverAddress") or "localhost:8501"
         share_url = f"http://{base_url}?chat={encoded}"
         return share_url
@@ -91,7 +137,6 @@ def load_conversation_from_url():
         if decoded:
             st.session_state.message_history = decoded
             st.success("会話を読み込みました！")
-            # URLパラメータをクリア
             st.query_params.clear()
 
 
@@ -99,12 +144,9 @@ def transcribe_audio(audio_file):
     """音声ファイルを文字起こし"""
     try:
         client = OpenAI()
-        
-        # ファイルを読み込み
         audio_bytes = audio_file.read()
-        audio_file.seek(0)  # ポインタを先頭に戻す
+        audio_file.seek(0)
         
-        # Whisper APIで文字起こし
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
@@ -153,7 +195,15 @@ def generate_minutes(transcript):
 
 def init_messages():
     clear_button = st.sidebar.button("Clear Conversation", key="clear")
-    if clear_button or "message_history" not in st.session_state:
+    if clear_button:
+        # 現在の会話を保存してから新規作成
+        save_chat_history()
+        st.session_state.message_history = [
+            ("system", "You are a helpful assistant.")
+        ]
+        st.rerun()
+    
+    if "message_history" not in st.session_state:
         st.session_state.message_history = [
             ("system", "You are a helpful assistant.")
         ]
@@ -258,6 +308,26 @@ def calc_and_display_costs():
     st.sidebar.markdown(f"- Output cost: ${output_cost:.5f}")
 
 
+def display_chat_history_sidebar():
+    """サイドバーにチャット履歴を表示"""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📚 チャット履歴")
+    
+    if "chat_histories" not in st.session_state or len(st.session_state.chat_histories) == 0:
+        st.sidebar.info("まだ保存された会話はありません")
+        return
+    
+    for i, chat in enumerate(st.session_state.chat_histories):
+        col1, col2 = st.sidebar.columns([3, 1])
+        with col1:
+            if st.button(f"📝 {chat['title']}", key=f"load_{i}"):
+                load_chat_history(i)
+        with col2:
+            if st.button("🗑️", key=f"delete_{i}"):
+                delete_chat_history(i)
+        st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
+
+
 def main():
     init_page()
     
@@ -266,6 +336,9 @@ def main():
     
     init_messages()
     select_model()
+    
+    # チャット履歴表示
+    display_chat_history_sidebar()
     
     # サイドバーに共有機能を追加
     st.sidebar.markdown("---")
