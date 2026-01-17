@@ -256,19 +256,16 @@ def get_llm_response(user_input: str):
 
     # Gemini ✅
     elif model.startswith("gemini"):
-        from google.genai import Client
-        import os
-
         client = Client(api_key=os.environ["GOOGLE_API_KEY"])
 
         response = client.models.generate_content_stream(
-            model="models/gemini-1.5-flash",
+            model="models/gemini-1.5-flash-latest",
             contents=user_input
-    )
+        )
 
-    for chunk in response:
-        if chunk.text:
-            yield chunk.text
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
             
 
 def calc_and_display_costs():
@@ -396,6 +393,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
