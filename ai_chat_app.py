@@ -321,7 +321,11 @@ def display_chat_history_sidebar():
 
 def main():
     init_page()
-    
+
+    # 🔽 ここに貼る（Geminiの利用可能モデル確認）
+    st.write("### Gemini Available Models")
+    st.write([m.name for m in gemini_client.models.list()])
+
     # URLから会話をロード
     load_conversation_from_url()
     
@@ -397,6 +401,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
