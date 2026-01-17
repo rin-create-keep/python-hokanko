@@ -255,15 +255,15 @@ def get_llm_response(user_input: str):
                 yield text
 
     # Gemini ✅
-elif model.startswith("gemini"):
-    from google.genai import Client
-    import os
+    elif model.startswith("gemini"):
+        from google.genai import Client
+        import os
 
-    client = Client(api_key=os.environ["GOOGLE_API_KEY"])
+        client = Client(api_key=os.environ["GOOGLE_API_KEY"])
 
-    response = client.models.generate_content_stream(
-        model="models/gemini-1.5-flash",
-        contents=user_input
+        response = client.models.generate_content_stream(
+            model="models/gemini-1.5-flash",
+            contents=user_input
     )
 
     for chunk in response:
@@ -396,6 +396,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
