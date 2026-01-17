@@ -9,6 +9,11 @@ from datetime import datetime
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
 
+# ===== Gemini Client（Streamlit用）=====
+gemini_client = Client(
+    api_key=st.secrets["GOOGLE_API_KEY"]
+)
+
 ###### dotenv を利用しない場合は消してください ######
 try:
     from dotenv import load_dotenv
@@ -256,16 +261,15 @@ def get_llm_response(user_input: str):
 
     # Gemini ✅
     elif model.startswith("gemini"):
-        client = Client(api_key=os.environ["GOOGLE_API_KEY"])
-
-        response = client.models.generate_content_stream(
+        response = gemini_client.models.generate_content_stream(
             model="models/gemini-1.5-flash-002",
-            contents=user_input
+            contents=user_input,
         )
 
-        for chunk in response:
-            if chunk.text:
-                yield chunk.text
+    for chunk in response:
+        if chunk.text:
+            yield chunk.text
+
             
 
 def calc_and_display_costs():
@@ -393,6 +397,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
