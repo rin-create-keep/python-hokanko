@@ -261,14 +261,17 @@ def get_llm_response(user_input: str):
 
     # Gemini ✅
     elif model.startswith("gemini"):
-        response = gemini_client.models.generate_content_stream(
-            model="models/gemini-1.5-flash-002",
-            contents=user_input,
+        client = Client(api_key=st.secrets["GOOGLE_API_KEY"])
+
+        response = client.models.generate_content_stream(
+            model="models/gemini-2.5-flash",
+            contents=user_input
         )
 
     for chunk in response:
         if chunk.text:
             yield chunk.text
+
 
             
 
@@ -401,6 +404,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
