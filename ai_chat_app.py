@@ -121,15 +121,18 @@ def decode_conversation(encoded_str):
 
 
 def create_share_url():
-    """共有用URLを生成"""
     if "message_history" not in st.session_state:
         return None
-    
-    encoded = encode_conversation(st.session_state.message_history)
+
+    # 🔽 修正①：共有するメッセージ数を制限（重要）
+    messages = st.session_state.message_history[-10:]
+
+    encoded = encode_conversation(messages)
     if encoded:
-        base_url = st.get_option("browser.serverAddress") or "localhost:8501"
-        share_url = f"http://{base_url}?chat={encoded}"
+        # 🔽 修正②：相対URLでOK（Streamlit推奨）
+        share_url = f"?chat={encoded}"
         return share_url
+
     return None
 
 
@@ -142,7 +145,6 @@ def load_conversation_from_url():
         if decoded:
             st.session_state.message_history = decoded
             st.success("会話を読み込みました！")
-            st.query_params.clear()
 
 
 def transcribe_audio(audio_file):
@@ -357,7 +359,7 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🔗 会話の共有")
     if st.sidebar.button("共有URLを生成"):
-        share_url = create_share_url()
+        share_url = f"?chat={encoded}"
         if share_url:
             st.sidebar.text_area("共有URL", share_url, height=100)
             st.sidebar.info("このURLをコピーして共有してください")
@@ -419,6 +421,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
