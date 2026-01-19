@@ -266,13 +266,14 @@ def get_llm_response(user_input: str):
         from datetime import datetime
         now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
-        prompt = f"""
-    現在の日時は {now} です。
-    この前提でユーザーの質問に答えてください。
+    prompt = f"""
+    現在の日時は【日本時間で {now} 】です。
+    必ずこの日時を基準に回答してください。
 
     質問:
     {user_input}
     """
+
 
         try:
             response = client.models.generate_content_stream(
@@ -418,6 +419,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
