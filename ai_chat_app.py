@@ -29,13 +29,13 @@ MODEL_PRICES = {
         "gpt-3.5-turbo": 0.5 / 1_000_000,
         "gpt-4o": 5 / 1_000_000,
         "claude-3-haiku-20240307": 3 / 1_000_000,
-        "gemini-1.5-pro-latest": 3.5 / 1_000_000
+        "gemini-2.5-flash": 0.35 / 1_000_000
     },
     "output": {
         "gpt-3.5-turbo": 1.5 / 1_000_000,
         "gpt-4o": 15 / 1_000_000,
         "claude-3-haiku-20240307": 15 / 1_000_000,
-        "gemini-1.5-pro-latest": 10.5 / 1_000_000
+        "gemini-2.5-flash": 0.70 / 1_000_000
     }
 }
 
@@ -230,7 +230,7 @@ def select_model():
     elif model == "Claude 3.5 Sonnet":
         st.session_state.model_name = "claude-3-haiku-20240307"
     else:
-        st.session_state.model_name = "gemini"
+        st.session_state.model_name = "gemini-2.5-flash"
 
 
 def get_llm_response(user_input: str):
@@ -404,6 +404,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
