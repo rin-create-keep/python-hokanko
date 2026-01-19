@@ -264,15 +264,16 @@ def get_llm_response(user_input: str):
         client = Client(api_key=os.environ["GOOGLE_API_KEY"])
     
         from datetime import datetime
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        from zoneinfo import ZoneInfo
     
-        prompt = f"""
-    現在の日時は {now} です。
-    この日時を必ず基準にして回答してください。
+        now = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y-%m-%d %H:%M:%S")
     
-    ユーザーの質問：
-    {user_input}
-    """
+        prompt = (
+            "あなたは日時計算を絶対に間違えてはいけません。\n"
+            f"現在の日時は {now} です。\n"
+            "この日時のみを基準に回答してください。\n\n"
+            f"ユーザーの質問：{user_input}"
+        )
     
         try:
             response = client.models.generate_content_stream(
@@ -418,6 +419,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
