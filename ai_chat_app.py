@@ -261,16 +261,16 @@ def get_llm_response(user_input: str):
 
     # Gemini ✅
     elif model.startswith("gemini"):
-        client = Client(api_key=st.secrets["GOOGLE_API_KEY"])
+        client = Client(api_key=os.environ["GOOGLE_API_KEY"])
     
         from datetime import datetime
-        now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
         prompt = f"""
     現在の日時は {now} です。
-    この前提でユーザーの質問に答えてください。
+    この日時を必ず基準にして回答してください。
     
-    質問:
+    ユーザーの質問：
     {user_input}
     """
     
@@ -285,8 +285,8 @@ def get_llm_response(user_input: str):
                     yield chunk.text
     
         except Exception as e:
-            yield "\n\n⚠️ Gemini APIで一時的なエラーが発生しました。"
-            st.error(e)
+            yield f"⚠️ Geminiエラー: {e}"
+
 
 
 def calc_and_display_costs():
@@ -418,6 +418,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
