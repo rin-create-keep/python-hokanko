@@ -124,14 +124,11 @@ def create_share_url():
     if "message_history" not in st.session_state:
         return None
 
-    # 🔽 修正①：共有するメッセージ数を制限（重要）
     messages = st.session_state.message_history[-10:]
-
     encoded = encode_conversation(messages)
+
     if encoded:
-        # 🔽 修正②：相対URLでOK（Streamlit推奨）
-        share_url = f"?chat={encoded}"
-        return share_url
+        return f"?chat={encoded}"
 
     return None
 
@@ -359,10 +356,11 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🔗 会話の共有")
     if st.sidebar.button("共有URLを生成"):
-        share_url = f"?chat={encoded}"
+        share_url = create_share_url()   # ← ★ここが重要
         if share_url:
             st.sidebar.text_area("共有URL", share_url, height=100)
             st.sidebar.info("このURLをコピーして共有してください")
+
     
     # 音声議事録機能
     st.sidebar.markdown("---")
@@ -421,6 +419,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
