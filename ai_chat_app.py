@@ -144,17 +144,15 @@ def create_share_url():
 
 
 def load_conversation_from_url():
+    query_params = st.query_params
+    decoded = None  # ← 初期化（超重要）
+
+    if "chat" in query_params:
+        encoded = query_params["chat"]
+        decoded = decode_conversation(encoded)
+
     st.write("DEBUG decoded:", decoded)
-    """URLパラメータから会話をロード"""
-    params = st.query_params
 
-    if "chat" not in params:
-        return
-
-    # 🔽 修正①：list → str に変換
-    encoded = params["chat"][0]
-
-    decoded = decode_conversation(encoded)
     if decoded:
         st.session_state.message_history = decoded
         st.success("会話を読み込みました！")
@@ -439,6 +437,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
