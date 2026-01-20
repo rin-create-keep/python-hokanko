@@ -144,6 +144,7 @@ def create_share_url():
 
 
 def load_conversation_from_url():
+    st.write("DEBUG decoded:", decoded)
     """URLパラメータから会話をロード"""
     params = st.query_params
 
@@ -438,6 +439,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
