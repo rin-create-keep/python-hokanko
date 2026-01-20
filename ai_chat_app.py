@@ -375,9 +375,10 @@ def main():
             full_url = st.get_option("server.baseUrlPath") or ""
             st.sidebar.text_area(
                 "共有URL",
-                f"{st.experimental_get_url()}{share_url}",
+                f"{st.runtime.scriptrunner.get_script_run_ctx().request.base_url}{share_url}",
                 height=120
             )
+
 
     
     # 音声議事録機能
@@ -437,6 +438,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
