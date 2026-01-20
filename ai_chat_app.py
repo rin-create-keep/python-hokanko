@@ -113,6 +113,10 @@ def encode_conversation(message_history):
 def decode_conversation(encoded_str):
     """Base64エンコードされた会話履歴をデコード"""
     try:
+        # 🔽 修正①：Base64 パディングを復元
+        padding = '=' * (-len(encoded_str) % 4)
+        encoded_str += padding
+
         json_str = base64.urlsafe_b64decode(encoded_str.encode('utf-8')).decode('utf-8')
         return json.loads(json_str)
     except Exception as e:
@@ -124,9 +128,15 @@ def create_share_url():
     if "message_history" not in st.session_state:
         return None
 
-    messages = st.session_state.message_history[-10:]
-    encoded = encode_conversation(messages)
+    history = st.session_state.message_history
 
+    # 🔽 system は必ず含める
+    system = [m for m in history if m[0] == "system"]
+    others = [m for m in history if m[0] != "system"][-9:]
+
+    messages = system + others
+
+    encoded = encode_conversation(messages)
     if encoded:
         return f"?chat={encoded}"
 
@@ -360,10 +370,14 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🔗 会話の共有")
     if st.sidebar.button("共有URLを生成"):
-        share_url = create_share_url()   # ← ★ここが重要
+        share_url = create_share_url()
         if share_url:
-            st.sidebar.text_area("共有URL", share_url, height=100)
-            st.sidebar.info("このURLをコピーして共有してください")
+            full_url = st.get_option("server.baseUrlPath") or ""
+            st.sidebar.text_area(
+                "共有URL",
+                f"{st.experimental_get_url()}{share_url}",
+                height=120
+            )
 
     
     # 音声議事録機能
@@ -423,6 +437,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
