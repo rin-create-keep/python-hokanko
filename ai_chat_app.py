@@ -135,13 +135,18 @@ def create_share_url():
 
 def load_conversation_from_url():
     """URLパラメータから会話をロード"""
-    query_params = st.query_params
-    if "chat" in query_params:
-        encoded = query_params["chat"]
-        decoded = decode_conversation(encoded)
-        if decoded:
-            st.session_state.message_history = decoded
-            st.success("会話を読み込みました！")
+    params = st.query_params
+
+    if "chat" not in params:
+        return
+
+    # 🔽 修正①：list → str に変換
+    encoded = params["chat"][0]
+
+    decoded = decode_conversation(encoded)
+    if decoded:
+        st.session_state.message_history = decoded
+        st.success("会話を読み込みました！")
 
 
 def transcribe_audio(audio_file):
@@ -339,15 +344,14 @@ def display_chat_history_sidebar():
 def main():
     init_page()
 
-    # 🔽 ここに貼る（Geminiの利用可能モデル確認）
-    st.write("### Gemini Available Models")
-    st.write([m.name for m in gemini_client.models.list()])
+    # 🔽 修正②：一度だけURLロード
+    if "loaded_from_url" not in st.session_state:
+        st.session_state.loaded_from_url = True
+        load_conversation_from_url()
 
-    # URLから会話をロード
-    load_conversation_from_url()
-    
     init_messages()
     select_model()
+
     
     # チャット履歴表示
     display_chat_history_sidebar()
@@ -419,6 +423,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
