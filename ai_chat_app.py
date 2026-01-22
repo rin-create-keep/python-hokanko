@@ -366,16 +366,10 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🔗 会話の共有")
     if st.sidebar.button("共有URLを生成"):
-        share_url = create_share_url()
-        if share_url:
-            st.sidebar.text_area(
-                "共有URL",
-                share_url,
-                height=120
-            )
-
-            st.sidebar.caption("※ 同じアプリURLの後ろにこの文字列を付けてください")
-
+        encoded = create_share_url()
+        if encoded:
+            st.query_params["chat"] = encoded
+            st.sidebar.success("URLを生成しました！ブラウザのURLをコピーしてください")
 
     
     # 音声議事録機能
@@ -435,6 +429,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
