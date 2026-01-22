@@ -300,16 +300,17 @@ def get_llm_response(user_input: str, image_file=None):
         })
         
         # 画像がある場合
-        if uploaded_image:
-            image_bytes = uploaded_image.read()
-            uploaded_image.seek(0)
+        if image_file:
+            image_bytes = image_file.read()
+            image_file.seek(0)
         
             contents.append({
                 "inline_data": {
-                    "mime_type": uploaded_image.type,
+                    "mime_type": image_file.type,
                     "data": image_bytes
                 }
             })
+
 
     
         try:
@@ -467,6 +468,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
