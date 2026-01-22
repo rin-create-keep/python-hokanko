@@ -469,10 +469,12 @@ def main():
                 if message["type"] == "text":
                     st.markdown(message["content"])
                 elif message["type"] == "image":
+                    image_bytes = base64.b64decode(message["content"])
                     st.image(
-                        base64.b64decode(message["content"]),
+                        BytesIO(image_bytes),
                         use_container_width=True
                     )
+
                 elif message["type"] == "minutes":
                     st.markdown("### 📝 議事録")
                     st.markdown(message["content"])
@@ -518,6 +520,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
