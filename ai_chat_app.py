@@ -293,29 +293,31 @@ def get_llm_response(user_input: str, image_file=None):
         client = Client(api_key=os.environ["GOOGLE_API_KEY"])
     
         contents = []
-    
+        
         # テキスト
-        contents.append(
-            types.Part.from_text(user_input)
-        )
-    
-        # 画像
-        if image_file:
-            image_bytes = image_file.read()
-            image_file.seek(0)
-    
-            contents.append(
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type=image_file.type  # ← ここが超重要
-                )
-            )
+        contents.append({
+            "text": user_input
+        })
+        
+        # 画像がある場合
+        if uploaded_image:
+            image_bytes = uploaded_image.read()
+            uploaded_image.seek(0)
+        
+            contents.append({
+                "inline_data": {
+                    "mime_type": uploaded_image.type,
+                    "data": image_bytes
+                }
+            })
+
     
         try:
             response = client.models.generate_content_stream(
                 model="models/gemini-flash-latest",
                 contents=contents
             )
+
     
             for chunk in response:
                 if chunk.text:
@@ -465,6 +467,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
