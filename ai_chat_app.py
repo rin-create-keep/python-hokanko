@@ -468,20 +468,23 @@ def main():
             if isinstance(message, dict):
                 if message["type"] == "text":
                     st.markdown(message["content"])
-            elif message["type"] == "image":
-                try:
-                    image_bytes = base64.b64decode(message["content"])
-                    st.image(
-                        BytesIO(image_bytes),
-                        use_container_width=True
-                    )
-                except Exception:
-                    st.warning("⚠️ 画像を表示できませんでした")
-
+        
+                elif message["type"] == "image":
+                    try:
+                        image_bytes = base64.b64decode(message["content"])
+                        st.image(
+                            BytesIO(image_bytes),
+                            use_container_width=True
+                        )
+                    except Exception:
+                        st.warning("⚠️ 画像を表示できませんでした")
+        
                 elif message["type"] == "minutes":
                     st.markdown("### 📝 議事録")
                     st.markdown(message["content"])
+        
             else:
+                # message が str のとき（旧形式対策）
                 st.markdown(message)
 
 
@@ -523,6 +526,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
