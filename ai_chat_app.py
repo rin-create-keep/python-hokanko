@@ -146,9 +146,6 @@ def load_conversation_from_url():
     query_params = st.query_params
     decoded = None
 
-    # 🔍 ここに入れる！
-    st.write("DEBUG chat param:", st.query_params.get("chat"))
-
     if "chat" in query_params:
         encoded = query_params.get("chat")
 
@@ -437,6 +434,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
