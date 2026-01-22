@@ -3,7 +3,7 @@ import streamlit as st
 from openai import OpenAI
 import anthropic
 from google.genai import Client
-import json
+import json   
 import base64
 from datetime import datetime
 from urllib.parse import urlencode, parse_qs
@@ -138,10 +138,8 @@ def create_share_url():
     if not encoded:
         return None
 
-    # 🔽 現在のアプリURLを取得
-    base_url = st.request.url.split("?")[0]
-
-    return f"{base_url}?chat={encoded}"
+    # ✅ クエリだけ返す（正解）
+    return encoded
 
 
 def load_conversation_from_url():
@@ -437,6 +435,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
