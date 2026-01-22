@@ -146,9 +146,17 @@ def load_conversation_from_url():
     query_params = st.query_params
     decoded = None
 
+    # 🔍 ここに入れる！
+    st.write("DEBUG chat param:", st.query_params.get("chat"))
+
     if "chat" in query_params:
-        encoded = query_params["chat"][0]  # ← ここ重要
-        decoded = decode_conversation(encoded)
+        encoded = query_params.get("chat")
+
+        if isinstance(encoded, list):
+            encoded = encoded[0]
+
+        if encoded and len(encoded) > 10:
+            decoded = decode_conversation(encoded)
 
     if decoded:
         st.session_state.message_history = decoded
@@ -368,7 +376,7 @@ def main():
     if st.sidebar.button("共有URLを生成"):
         encoded = create_share_url()
         if encoded:
-            st.query_params["chat"] = encoded
+            st.query_params["chat"] = [encoded]
             st.sidebar.success("URLを生成しました！ブラウザのURLをコピーしてください")
 
     
@@ -429,6 +437,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
