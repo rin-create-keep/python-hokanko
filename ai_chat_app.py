@@ -8,6 +8,7 @@ import base64
 from datetime import datetime
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
+from google.genai import types
 
 # ===== Gemini Client（Streamlit用）=====
 gemini_client = Client(
@@ -290,22 +291,39 @@ def get_llm_response(user_input: str, image_file=None):
     # ===== Gemini（画像対応）=====
     elif model.startswith("gemini"):
         client = Client(api_key=os.environ["GOOGLE_API_KEY"])
-
-        contents = [user_input]
-
+    
+        contents = []
+    
+        # テキスト
+        contents.append(
+            types.Part.from_text(user_input)
+        )
+    
+        # 画像
         if image_file:
-            contents.append(image_file)
-
+            image_bytes = image_file.read()
+            image_file.seek(0)
+    
+            contents.append(
+                types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type=image_file.type  # ← ここが超重要
+                )
+            )
+    
         try:
             response = client.models.generate_content_stream(
                 model="models/gemini-flash-latest",
                 contents=contents
             )
+    
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
+    
         except Exception as e:
             yield f"⚠️ Geminiエラー: {e}"
+
 
 def image_to_base64(uploaded_file):
     image_bytes = uploaded_file.read()
@@ -447,6 +465,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
