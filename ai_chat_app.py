@@ -374,8 +374,11 @@ def main():
             full_url = st.get_option("server.baseUrlPath") or ""
             st.sidebar.text_area(
                 "共有URL",
-                f"{st.runtime.scriptrunner.get_script_run_ctx().request.base_url}{share_url}",
+                share_url,
                 height=120
+            )
+            st.sidebar.caption("※ 同じアプリURLの後ろにこの文字列を付けてください")
+
             )
 
 
@@ -437,6 +440,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
