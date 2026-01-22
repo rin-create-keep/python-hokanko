@@ -462,6 +462,7 @@ def main():
         if encoded:
             st.query_params["chat"] = [encoded]
             st.sidebar.success("URLを生成しました！ブラウザのURLをコピーしてください")
+            st.sidebar.caption("※ 共有URLには要約された会話のみが含まれます")
 
     
     # 音声議事録機能
@@ -568,6 +569,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
