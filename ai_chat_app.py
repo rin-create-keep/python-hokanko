@@ -248,22 +248,35 @@ def select_model():
         st.session_state.model_name = "gemini-2.5-flash"
 
 
-def get_llm_response(user_input: str):
+def get_llm_response(user_input: str, image_file=None):
     model = st.session_state.model_name
 
-    # GPT
+    # ===== GPT（画像対応）=====
     if model.startswith("gpt"):
         client = OpenAI()
+
+        content = [{"type": "text", "text": user_input}]
+
+        if image_file:
+            img_b64 = image_to_base64(image_file)
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{img_b64}"
+                }
+            })
+
         stream = client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": user_input}],
+            messages=[{"role": "user", "content": content}],
             stream=True,
         )
+
         for chunk in stream:
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
-    # Claude
+    # ===== Claude（テキストのみ）=====
     elif model.startswith("claude"):
         client = anthropic.Anthropic()
         with client.messages.stream(
@@ -274,36 +287,30 @@ def get_llm_response(user_input: str):
             for text in stream.text_stream:
                 yield text
 
-    # Gemini ✅
+    # ===== Gemini（画像対応）=====
     elif model.startswith("gemini"):
         client = Client(api_key=os.environ["GOOGLE_API_KEY"])
-    
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-    
-        now = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y-%m-%d %H:%M:%S")
-    
-        prompt = (
-            "あなたは日時計算を絶対に間違えてはいけません。\n"
-            f"現在の日時は {now} です。\n"
-            "この日時のみを基準に回答してください。\n\n"
-            f"ユーザーの質問：{user_input}"
-        )
-    
+
+        contents = [user_input]
+
+        if image_file:
+            contents.append(image_file)
+
         try:
             response = client.models.generate_content_stream(
                 model="models/gemini-flash-latest",
-                contents=prompt
+                contents=contents
             )
-    
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
-    
         except Exception as e:
             yield f"⚠️ Geminiエラー: {e}"
 
-
+def image_to_base64(uploaded_file):
+    image_bytes = uploaded_file.read()
+    uploaded_file.seek(0)
+    return base64.b64encode(image_bytes).decode("utf-8")
 
 def calc_and_display_costs():
     output_count = 0
@@ -415,6 +422,12 @@ def main():
         if role != "system":
             st.chat_message(role).markdown(message)
 
+    # ===== 画像アップロード =====
+    uploaded_image = st.file_uploader(
+        "画像をアップロード（質問と一緒に送れます）",
+        type=["png", "jpg", "jpeg"]
+    )
+
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         st.chat_message("user").markdown(user_input)
@@ -422,7 +435,7 @@ def main():
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             response_text = ""
-            for token in get_llm_response(user_input):
+            for token in get_llm_response(user_input, uploaded_image):
                 response_text += token
                 response_placeholder.markdown(response_text)
 
@@ -434,6 +447,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
