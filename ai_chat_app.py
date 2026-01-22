@@ -65,9 +65,12 @@ def save_chat_history():
     # タイトルを最初のユーザーメッセージから生成
     title = "New Chat"
     for role, msg in st.session_state.message_history:
-        if role == "user":
-            title = msg[:30] + ("..." if len(msg) > 30 else "")
+        if role == "user" and isinstance(msg, dict) and msg.get("type") == "text":
+            content = msg.get("content", "").strip()
+            if content:
+                title = content[:30] + ("..." if len(content) > 30 else "")
             break
+
     
     # 保存
     chat_data = {
@@ -569,6 +572,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
