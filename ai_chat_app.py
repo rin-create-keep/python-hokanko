@@ -132,7 +132,11 @@ def create_share_url():
     history = st.session_state.message_history
 
     system = [m for m in history if m[0] == "system"]
-    others = [m for m in history if m[0] != "system"][-9:]
+    others = [
+        m for m in history
+        if m[0] != "system"
+        and not (isinstance(m[1], dict) and m[1].get("type") == "image")
+    ][-9:]
     messages = system + others
 
     encoded = encode_conversation(messages)
@@ -526,6 +530,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
