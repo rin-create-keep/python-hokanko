@@ -255,9 +255,15 @@ def get_llm_response(user_input: str, image_file=None):
     # ===== GPT（画像対応）=====
     if model.startswith("gpt"):
         client = OpenAI()
-
+    
+        use_model = model
+    
+        # 🔽 画像があるのに GPT-3.5 の場合は自動で GPT-4o に切替
+        if image_file and model == "gpt-3.5-turbo":
+            use_model = "gpt-4o"
+    
         content = [{"type": "text", "text": user_input}]
-
+    
         if image_file:
             img_b64 = image_to_base64(image_file)
             content.append({
@@ -266,16 +272,17 @@ def get_llm_response(user_input: str, image_file=None):
                     "url": f"data:image/png;base64,{img_b64}"
                 }
             })
-
+    
         stream = client.chat.completions.create(
-            model=model,
+            model=use_model,
             messages=[{"role": "user", "content": content}],
             stream=True,
         )
-
+    
         for chunk in stream:
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+
 
     # ===== Claude（テキストのみ）=====
     elif model.startswith("claude"):
@@ -468,6 +475,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
