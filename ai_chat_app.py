@@ -123,7 +123,34 @@ def decode_conversation(encoded_str):
     except Exception as e:
         st.error(f"デコードエラー: {e}")
         return None
+        
+MAX_SHARE_CHARS = 1500
 
+def compress_messages_for_share(messages):
+    compressed = []
+    total_len = 0
+
+    for role, msg in messages:
+        # dict形式（今の実装に合わせる）
+        if isinstance(msg, dict):
+            if msg.get("type") != "text":
+                continue
+            content = msg.get("content", "")
+        else:
+            content = str(msg)
+
+        # assistant は短く
+        if role == "assistant":
+            content = content[:300] + ("…" if len(content) > 300 else "")
+
+        item_len = len(content)
+        if total_len + item_len > MAX_SHARE_CHARS:
+            break
+
+        compressed.append((role, {"type": "text", "content": content}))
+        total_len += item_len
+
+    return compressed
 
 def create_share_url():
     if "message_history" not in st.session_state:
@@ -132,19 +159,30 @@ def create_share_url():
     history = st.session_state.message_history
 
     system = [m for m in history if m[0] == "system"]
+
     others = [
         m for m in history
         if m[0] != "system"
-        and not (isinstance(m[1], dict) and m[1].get("type") == "image")
-    ][-9:]
+        and isinstance(m[1], dict)
+        and m[1].get("type") == "text"
+    ][-12:]
+
     messages = system + others
+
+    # 🔽 ここが肝
+    messages = compress_messages_for_share(messages)
 
     encoded = encode_conversation(messages)
     if not encoded:
         return None
 
-    # ✅ クエリだけ返す（正解）
+    # 最終防衛ライン
+    if len(encoded) > 4000:
+        st.warning("⚠️ 会話が長すぎるため、共有URLを生成できません")
+        return None
+
     return encoded
+
 
 
 def load_conversation_from_url():
@@ -530,6 +568,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
