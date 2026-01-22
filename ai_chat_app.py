@@ -286,11 +286,21 @@ def get_llm_response(user_input: str, image_file=None):
 
     # ===== Claude（テキストのみ）=====
     elif model.startswith("claude"):
+        # 🔽 画像がアップロードされている場合
+        if image_file:
+            yield "申し訳ありません。このモデルでは画像を読み込むことができません。テキストでご質問ください。"
+            return
+    
         client = anthropic.Anthropic()
         with client.messages.stream(
             model=model,
             max_tokens=1024,
-            messages=[{"role": "user", "content": user_input}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": user_input
+                }
+            ],
         ) as stream:
             for text in stream.text_stream:
                 yield text
@@ -475,6 +485,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
