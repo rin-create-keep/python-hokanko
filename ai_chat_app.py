@@ -130,28 +130,27 @@ def create_share_url():
 
     history = st.session_state.message_history
 
-    # 🔽 system は必ず含める
     system = [m for m in history if m[0] == "system"]
     others = [m for m in history if m[0] != "system"][-9:]
-
     messages = system + others
 
     encoded = encode_conversation(messages)
-    if encoded:
-        return f"?chat={encoded}"
+    if not encoded:
+        return None
 
-    return None
+    # 🔽 現在のアプリURLを取得
+    base_url = st.request.url.split("?")[0]
+
+    return f"{base_url}?chat={encoded}"
 
 
 def load_conversation_from_url():
     query_params = st.query_params
-    decoded = None  # ← 初期化（超重要）
+    decoded = None
 
     if "chat" in query_params:
-        encoded = query_params["chat"]
+        encoded = query_params["chat"][0]  # ← ここ重要
         decoded = decode_conversation(encoded)
-
-    st.write("DEBUG decoded:", decoded)
 
     if decoded:
         st.session_state.message_history = decoded
@@ -371,12 +370,12 @@ def main():
     if st.sidebar.button("共有URLを生成"):
         share_url = create_share_url()
         if share_url:
-            full_url = st.get_option("server.baseUrlPath") or ""
             st.sidebar.text_area(
                 "共有URL",
                 share_url,
                 height=120
             )
+
             st.sidebar.caption("※ 同じアプリURLの後ろにこの文字列を付けてください")
 
 
@@ -438,6 +437,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
