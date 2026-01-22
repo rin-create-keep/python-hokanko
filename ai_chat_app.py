@@ -379,8 +379,6 @@ def main():
             )
             st.sidebar.caption("※ 同じアプリURLの後ろにこの文字列を付けてください")
 
-            )
-
 
     
     # 音声議事録機能
@@ -440,6 +438,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
