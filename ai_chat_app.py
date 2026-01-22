@@ -442,10 +442,14 @@ def main():
             
             if minutes:
                 st.sidebar.success("議事録生成完了！")
-                
-                # 議事録を表示
+            
                 st.markdown("## 📝 生成された議事録")
                 st.markdown(minutes)
+            
+                # 🔽 チャット履歴に保存
+                st.session_state.message_history.append(
+                    ("assistant", {"type": "minutes", "content": minutes})
+                )
                 
                 # ダウンロードボタン
                 st.download_button(
@@ -457,8 +461,24 @@ def main():
 
     # チャット履歴を表示
     for role, message in st.session_state.get("message_history", []):
-        if role != "system":
-            st.chat_message(role).markdown(message)
+        if role == "system":
+            continue
+    
+        with st.chat_message(role):
+            if isinstance(message, dict):
+                if message["type"] == "text":
+                    st.markdown(message["content"])
+                elif message["type"] == "image":
+                    st.image(
+                        base64.b64decode(message["content"]),
+                        use_container_width=True
+                    )
+                elif message["type"] == "minutes":
+                    st.markdown("### 📝 議事録")
+                    st.markdown(message["content"])
+            else:
+                st.markdown(message)
+
 
     # ===== 画像アップロード =====
     uploaded_image = st.file_uploader(
@@ -469,22 +489,36 @@ def main():
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         st.chat_message("user").markdown(user_input)
-
+    
+        # テキストを保存
+        st.session_state.message_history.append(
+            ("user", {"type": "text", "content": user_input})
+        )
+    
+        # 画像があれば保存
+        if uploaded_image:
+            img_b64 = image_to_base64(uploaded_image)
+            st.session_state.message_history.append(
+                ("user", {"type": "image", "content": img_b64})
+            )
+    
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             response_text = ""
             for token in get_llm_response(user_input, uploaded_image):
                 response_text += token
                 response_placeholder.markdown(response_text)
+    
+        st.session_state.message_history.append(
+            ("assistant", {"type": "text", "content": response_text})
+        )
 
-        # チャット履歴に追加
-        st.session_state.message_history.append(("user", user_input))
-        st.session_state.message_history.append(("assistant", response_text))
 
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
+
 
 
 
