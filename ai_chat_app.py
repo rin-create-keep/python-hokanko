@@ -258,9 +258,36 @@ def generate_minutes(transcript):
         st.error(f"議事録生成エラー: {e}")
         return None
 
+def init_room():
+    query_params = st.query_params
+    room = query_params.get("room", ["default"])
+    if isinstance(room, list):
+        room = room[0]
+
+    if "room_id" not in st.session_state:
+        st.session_state.room_id = room
+
+    if "rooms" not in st.session_state:
+        st.session_state.rooms = {}
+
+    if room not in st.session_state.rooms:
+        st.session_state.rooms[room] = {
+            "message_history": [(
+                "system",
+                f"You are a helpful assistant. Current date: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            )],
+            "chat_histories": []
+        }
+
+    st.session_state.message_history = st.session_state.rooms[room]["message_history"]
+
 
 def init_messages():
     clear_button = st.sidebar.button("Clear Conversation", key="clear")
+    
+    if "tasks" not in st.session_state:
+    st.session_state.tasks = []
+    
     if clear_button:
         # 現在の会話を保存してから新規作成
         save_chat_history()
@@ -271,7 +298,11 @@ def init_messages():
     
     if "message_history" not in st.session_state:
         st.session_state.message_history = [
-            ("system", "You are a helpful assistant.")
+            ("system", f"""
+                You are a helpful assistant.
+                Current date and time: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+                """)
+
         ]
 
 
@@ -444,7 +475,37 @@ def display_chat_history_sidebar():
 
 def main():
     init_page()
+    init_room()
 
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📄 PDF問題生成")
+    
+    pdf = st.sidebar.file_uploader("PDFアップロード", type=["pdf"])
+    if pdf and st.sidebar.button("問題を作成"):
+        text = read_pdf(pdf)
+        questions = generate_similar_questions(text)
+        st.markdown("## 📝 生成された問題")
+        st.markdown(questions)
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 🎨 画像生成")
+    
+    img_prompt = st.sidebar.text_input("画像生成プロンプト")
+    if st.sidebar.button("画像を生成"):
+        img_b64 = generate_image(img_prompt)
+        st.image(base64.b64decode(img_b64))
+
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## ✅ タスク管理")
+    
+    if st.sidebar.button("直近メッセージからタスク抽出"):
+        last = st.session_state.message_history[-1][1]["content"]
+        st.session_state.tasks.extend(extract_tasks(last))
+    
+    if st.session_state.tasks:
+        st.table(st.session_state.tasks)
+    
     # 🔽 修正②：一度だけURLロード
     if "loaded_from_url" not in st.session_state:
         st.session_state.loaded_from_url = True
@@ -453,6 +514,13 @@ def main():
     init_messages()
     select_model()
 
+
+    st.sidebar.markdown("## 🏠 ルーム")
+    new_room = st.sidebar.text_input("新しいルーム名")
+    if st.sidebar.button("ルーム作成"):
+        if new_room:
+            st.query_params["room"] = [new_room]
+            st.rerun()
     
     # チャット履歴表示
     display_chat_history_sidebar()
@@ -485,12 +553,64 @@ def main():
             
             with st.spinner("議事録を生成中..."):
                 minutes = generate_minutes(transcript)
+
+            def minutes_to_schedule(minutes):
+                client = OpenAI()
+                res = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": f"{minutes}\n\nこれをスケジュール形式(JSON)に変換"}]
+                )
+                return json.loads(res.choices[0].message.content)
+
+            import PyPDF2
+
+            def read_pdf(file):
+                reader = PyPDF2.PdfReader(file)
+                return "\n".join([p.extract_text() for p in reader.pages])
+            
+            def generate_similar_questions(text):
+                client = OpenAI()
+                res = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": f"{text}\n\nこの内容から問題を5問作成してください"}]
+                )
+                return res.choices[0].message.content
+
+            def extract_tasks(text):
+                client = OpenAI()
+                prompt = f"""
+            以下の文章からタスクを抽出してください。
+            JSON形式で返してください。
+            
+            [
+              {{
+                "task": "",
+                "owner": "",
+                "deadline": ""
+              }}
+            ]
+            
+            {text}
+            """
+                res = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0
+                )
+                return json.loads(res.choices[0].message.content)
+
             
             if minutes:
                 st.sidebar.success("議事録生成完了！")
             
                 st.markdown("## 📝 生成された議事録")
                 st.markdown(minutes)
+                
+                if st.button("📅 スケジュール化"):
+                    schedule = minutes_to_schedule(minutes)
+                    st.session_state.setdefault("schedule", []).extend(schedule)
+                    st.table(schedule)
+
             
                 # 🔽 チャット履歴に保存
                 st.session_state.message_history.append(
@@ -543,6 +663,9 @@ def main():
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         st.chat_message("user").markdown(user_input)
+
+    if uploaded_image:
+    st.chat_message("user").image(uploaded_image, use_container_width=True)
     
         # テキストを保存
         st.session_state.message_history.append(
@@ -552,6 +675,16 @@ def main():
         # 画像があれば保存
         if uploaded_image:
             img_b64 = image_to_base64(uploaded_image)
+            
+        def generate_image(prompt):
+            client = OpenAI()
+            result = client.images.generate(
+                model="gpt-image-1",
+                prompt=prompt,
+                size="1024x1024"
+            )
+            return result.data[0].b64_json
+
             st.session_state.message_history.append(
                 ("user", {"type": "image", "content": img_b64})
             )
@@ -572,6 +705,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
