@@ -9,6 +9,7 @@ from datetime import datetime
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
 from google.genai import types
+import PyPDF2
 
 # ===== Gemini Client（Streamlit用）=====
 gemini_client = Client(
@@ -117,7 +118,7 @@ def encode_conversation(message_history):
 def decode_conversation(encoded_str):
     """Base64エンコードされた会話履歴をデコード"""
     try:
-        # 🔽 修正①：Base64 パディングを復元
+        # Base64 パディングを復元
         padding = '=' * (-len(encoded_str) % 4)
         encoded_str += padding
 
@@ -172,7 +173,6 @@ def create_share_url():
 
     messages = system + others
 
-    # 🔽 ここが肝
     messages = compress_messages_for_share(messages)
 
     encoded = encode_conversation(messages)
@@ -185,7 +185,6 @@ def create_share_url():
         return None
 
     return encoded
-
 
 
 def load_conversation_from_url():
@@ -258,6 +257,92 @@ def generate_minutes(transcript):
         st.error(f"議事録生成エラー: {e}")
         return None
 
+
+def minutes_to_schedule(minutes):
+    """議事録からスケジュールを生成"""
+    try:
+        client = OpenAI()
+        res = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": f"{minutes}\n\nこれをスケジュール形式(JSON)に変換"}]
+        )
+        return json.loads(res.choices[0].message.content)
+    except Exception as e:
+        st.error(f"スケジュール生成エラー: {e}")
+        return []
+
+
+def read_pdf(file):
+    """PDFファイルからテキストを抽出"""
+    try:
+        reader = PyPDF2.PdfReader(file)
+        return "\n".join([p.extract_text() for p in reader.pages])
+    except Exception as e:
+        st.error(f"PDF読み込みエラー: {e}")
+        return ""
+
+
+def generate_similar_questions(text):
+    """テキストから問題を生成"""
+    try:
+        client = OpenAI()
+        res = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": f"{text}\n\nこの内容から問題を5問作成してください"}]
+        )
+        return res.choices[0].message.content
+    except Exception as e:
+        st.error(f"問題生成エラー: {e}")
+        return ""
+
+
+def extract_tasks(text):
+    """テキストからタスクを抽出"""
+    try:
+        client = OpenAI()
+        prompt = f"""
+以下の文章からタスクを抽出してください。
+JSON形式で返してください。
+
+[
+  {{
+    "task": "",
+    "owner": "",
+    "deadline": ""
+  }}
+]
+
+{text}
+"""
+        res = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
+        return json.loads(res.choices[0].message.content)
+    except Exception as e:
+        st.error(f"タスク抽出エラー: {e}")
+        return []
+
+
+def generate_image(prompt):
+    """DALL-Eで画像を生成"""
+    try:
+        client = OpenAI()
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+            response_format="b64_json"
+        )
+        return response.data[0].b64_json
+    except Exception as e:
+        st.error(f"画像生成エラー: {e}")
+        return None
+
+
 def init_room():
     query_params = st.query_params
     room = query_params.get("room", ["default"])
@@ -299,7 +384,6 @@ def init_messages():
                 """)
         ]
 
-    # ✅ ここを追加（インデント注意）
     if "tasks" not in st.session_state:
         st.session_state.tasks = []
 
@@ -342,11 +426,10 @@ def get_llm_response(user_input, image_bytes=None):
     
         use_model = model
     
-        # 🔽 画像があるのに GPT-3.5 の場合は自動で GPT-4o に切替
+        # 画像があるのに GPT-3.5 の場合は自動で GPT-4o に切替
         if image_bytes and model == "gpt-3.5-turbo":
             use_model = "gpt-4o"
 
-    
         content = [{"type": "text", "text": user_input}]
     
         if image_bytes:
@@ -368,10 +451,8 @@ def get_llm_response(user_input, image_bytes=None):
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
-
     # ===== Claude（テキストのみ）=====
     elif model.startswith("claude"):
-        # 🔽 画像がアップロードされている場合
         if image_bytes:
             yield "申し訳ありません。このモデルでは画像を読み込むことができません。"
             return
@@ -405,11 +486,6 @@ def get_llm_response(user_input, image_bytes=None):
             "text": instruction + "\n\nユーザーの質問:\n" + user_input
         })
         
-        # テキスト
-        contents.append({
-            "text": user_input
-        })
-        
         # 画像がある場合
         if image_bytes:
             contents.append({
@@ -418,14 +494,12 @@ def get_llm_response(user_input, image_bytes=None):
                     "data": image_bytes
                 }
             })
-
     
         try:
             response = client.models.generate_content_stream(
                 model="models/gemini-flash-latest",
                 contents=contents
             )
-
     
             for chunk in response:
                 if chunk.text:
@@ -440,11 +514,16 @@ def image_to_base64(uploaded_file):
     uploaded_file.seek(0)
     return base64.b64encode(image_bytes).decode("utf-8")
 
+
 def calc_and_display_costs():
     output_count = 0
     input_count = 0
     for role, message in st.session_state.message_history:
-        token_count = get_message_counts(message)
+        if isinstance(message, dict):
+            token_count = get_message_counts(message.get("content", ""))
+        else:
+            token_count = get_message_counts(message)
+            
         if role == "assistant":
             output_count += token_count
         else:
@@ -493,7 +572,7 @@ def main():
     init_messages()
     select_model()
 
-    # 表示は安全に
+    # タスク表示
     if st.session_state.get("tasks"):
         st.table(st.session_state.tasks)
 
@@ -503,39 +582,48 @@ def main():
     pdf = st.sidebar.file_uploader("PDFアップロード", type=["pdf"])
     if pdf and st.sidebar.button("問題を作成"):
         text = read_pdf(pdf)
-        questions = generate_similar_questions(text)
-        st.markdown("## 📝 生成された問題")
-        st.markdown(questions)
+        if text:
+            questions = generate_similar_questions(text)
+            if questions:
+                st.markdown("## 📝 生成された問題")
+                st.markdown(questions)
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🎨 画像生成")
     
     img_prompt = st.sidebar.text_input("画像生成プロンプト")
-    if st.sidebar.button("画像を生成"):
+    if st.sidebar.button("画像を生成") and img_prompt:
         img_b64 = generate_image(img_prompt)
-        st.image(base64.b64decode(img_b64))
-
+        if img_b64:
+            st.image(base64.b64decode(img_b64))
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("## ✅ タスク管理")
     
     if st.sidebar.button("直近メッセージからタスク抽出"):
-        last = st.session_state.message_history[-1][1]["content"]
-        st.session_state.tasks.extend(extract_tasks(last))
+        if st.session_state.message_history:
+            last_msg = st.session_state.message_history[-1][1]
+            if isinstance(last_msg, dict):
+                content = last_msg.get("content", "")
+            else:
+                content = last_msg
+            
+            if content:
+                tasks = extract_tasks(content)
+                if tasks:
+                    st.session_state.tasks.extend(tasks)
+                    st.rerun()
     
-    
-    # 🔽 修正②：一度だけURLロード
+    # 一度だけURLロード
     if "loaded_from_url" not in st.session_state:
         st.session_state.loaded_from_url = True
         load_conversation_from_url()
 
-
     st.sidebar.markdown("## 🏠 ルーム")
     new_room = st.sidebar.text_input("新しいルーム名")
-    if st.sidebar.button("ルーム作成"):
-        if new_room:
-            st.query_params["room"] = [new_room]
-            st.rerun()
+    if st.sidebar.button("ルーム作成") and new_room:
+        st.query_params["room"] = [new_room]
+        st.rerun()
     
     # チャット履歴表示
     display_chat_history_sidebar()
@@ -549,7 +637,6 @@ def main():
             st.query_params["chat"] = [encoded]
             st.sidebar.success("URLを生成しました！ブラウザのURLをコピーしてください")
             st.sidebar.caption("※ 共有URLには要約された会話のみが含まれます")
-
     
     # 音声議事録機能
     st.sidebar.markdown("---")
@@ -568,52 +655,6 @@ def main():
             
             with st.spinner("議事録を生成中..."):
                 minutes = generate_minutes(transcript)
-
-            def minutes_to_schedule(minutes):
-                client = OpenAI()
-                res = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[{"role": "user", "content": f"{minutes}\n\nこれをスケジュール形式(JSON)に変換"}]
-                )
-                return json.loads(res.choices[0].message.content)
-
-            import PyPDF2
-
-            def read_pdf(file):
-                reader = PyPDF2.PdfReader(file)
-                return "\n".join([p.extract_text() for p in reader.pages])
-            
-            def generate_similar_questions(text):
-                client = OpenAI()
-                res = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[{"role": "user", "content": f"{text}\n\nこの内容から問題を5問作成してください"}]
-                )
-                return res.choices[0].message.content
-
-            def extract_tasks(text):
-                client = OpenAI()
-                prompt = f"""
-            以下の文章からタスクを抽出してください。
-            JSON形式で返してください。
-            
-            [
-              {{
-                "task": "",
-                "owner": "",
-                "deadline": ""
-              }}
-            ]
-            
-            {text}
-            """
-                res = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0
-                )
-                return json.loads(res.choices[0].message.content)
-
             
             if minutes:
                 st.sidebar.success("議事録生成完了！")
@@ -623,11 +664,11 @@ def main():
                 
                 if st.button("📅 スケジュール化"):
                     schedule = minutes_to_schedule(minutes)
-                    st.session_state.setdefault("schedule", []).extend(schedule)
-                    st.table(schedule)
-
+                    if schedule:
+                        st.session_state.setdefault("schedule", []).extend(schedule)
+                        st.table(schedule)
             
-                # 🔽 チャット履歴に保存
+                # チャット履歴に保存
                 st.session_state.message_history.append(
                     ("assistant", {"type": "minutes", "content": minutes})
                 )
@@ -647,7 +688,6 @@ def main():
     
         with st.chat_message(role):
             if isinstance(message, dict):
-        
                 if message["type"] == "text":
                     st.markdown(message["content"])
         
@@ -661,7 +701,6 @@ def main():
                 elif message["type"] == "minutes":
                     st.markdown("### 📝 議事録")
                     st.markdown(message["content"])
-        
             else:
                 # message が str のとき（旧形式対策）
                 st.markdown(message)
@@ -687,9 +726,6 @@ def main():
             ):
                 st.image(uploaded, use_container_width=True)
 
-    # デバッグ確認
-    uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
-
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         with st.chat_message("user"):
@@ -708,16 +744,20 @@ def main():
                 ("user", {"type": "image", "content": img_b64})
             )
     
-        # アシスタント
+        # アシスタント応答
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             response_text = ""
             for token in get_llm_response(user_input, image_bytes):
                 response_text += token
                 response_placeholder.markdown(response_text)
+            
+            # 応答を履歴に保存
+            st.session_state.message_history.append(
+                ("assistant", {"type": "text", "content": response_text})
+            )
 
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
-
