@@ -323,7 +323,7 @@ def select_model():
         st.session_state.model_name = "gemini-2.5-flash"
 
 
-def get_llm_response(user_input: str, image_file=None):
+def get_llm_response(user_input, image_bytes=None):
     model = st.session_state.model_name
 
     # ===== GPT（画像対応）=====
@@ -338,8 +338,8 @@ def get_llm_response(user_input: str, image_file=None):
     
         content = [{"type": "text", "text": user_input}]
     
-        if image_file:
-            img_b64 = image_to_base64(image_file)
+        if image_bytes:
+            img_b64 = base64.b64encode(image_bytes).decode("utf-8")
             content.append({
                 "type": "image_url",
                 "image_url": {
@@ -391,17 +391,13 @@ def get_llm_response(user_input: str, image_file=None):
         })
         
         # 画像がある場合
-        if image_file:
-            image_bytes = image_file.read()
-            image_file.seek(0)
-        
+        if image_bytes:
             contents.append({
                 "inline_data": {
-                    "mime_type": image_file.type,
+                    "mime_type": "image/png",
                     "data": image_bytes
                 }
             })
-
 
     
         try:
@@ -664,8 +660,12 @@ def main():
     if uploaded_image is not None:
         image_bytes = uploaded_image.getvalue()
     
+        # ★ session_state に保存
+        st.session_state["uploaded_image_bytes"] = image_bytes
+    
         with st.chat_message("user"):
             st.image(image_bytes, use_container_width=True)
+
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -684,11 +684,16 @@ def main():
         )
     
     # ===== アシスタントの応答 =====
-    if user_input or uploaded_image:
+    image_bytes = st.session_state.get("uploaded_image_bytes")
+    
+    if user_input or image_bytes:
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             response_text = ""
-            for token in get_llm_response(user_input or "", uploaded_image):
+            for token in get_llm_response(
+                user_input or "",
+                image_bytes  # ← bytes を渡す
+            ):
                 response_text += token
                 response_placeholder.markdown(response_text)
 
@@ -696,6 +701,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
