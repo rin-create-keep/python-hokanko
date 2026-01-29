@@ -682,16 +682,14 @@ def main():
     
     # 画像があれば保存
     if uploaded_image is not None:
-        img_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        st.session_state.message_history.append(
-            ("user", {"type": "image", "content": img_b64})
-        )
+        image_bytes = uploaded_image.getvalue()
+        st.session_state["uploaded_image_bytes"] = image_bytes
+    
+        with st.chat_message("user"):
+            st.image(image_bytes, use_container_width=True)
     
     # ===== アシスタントの応答 =====
     image_bytes = st.session_state.get("uploaded_image_bytes")
-    
-    if image_bytes:
-        st.image(BytesIO(image_bytes), use_container_width=True)
     
     if user_input or image_bytes:
         with st.chat_message("assistant"):
@@ -708,6 +706,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
