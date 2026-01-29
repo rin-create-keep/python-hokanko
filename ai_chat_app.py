@@ -634,8 +634,8 @@ def main():
 
                 elif message["type"] == "image":
                     try:
-                        image_bytes = base64.b64decode(message["content"])
-                        st.image(image_bytes, use_container_width=True)
+                        img_bytes = base64.b64decode(message["content"])
+                        st.image(img_bytes, use_container_width=True)
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
         
@@ -698,6 +698,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
