@@ -646,7 +646,7 @@ def main():
             else:
                 # message が str のとき（旧形式対策）
                 st.markdown(message)
-
+                
 
     # ===== 画像アップロード =====
     uploaded_image = st.file_uploader(
@@ -654,12 +654,17 @@ def main():
         type=["png", "jpg", "jpeg"]
     )
     
+    # 新しくアップロードされたときだけ保存
     if uploaded_image is not None:
-        image_bytes = uploaded_image.getvalue()
-        st.session_state["uploaded_image_bytes"] = image_bytes
+        st.session_state["uploaded_image_bytes"] = uploaded_image.getvalue()
     
+    # 表示は session_state に bytes がある場合のみ
+    image_bytes = st.session_state.get("uploaded_image_bytes")
+    
+    if isinstance(image_bytes, (bytes, bytearray)) and len(image_bytes) > 0:
         with st.chat_message("user"):
             st.image(image_bytes, use_container_width=True)
+
 
 
     # ユーザー入力
@@ -686,10 +691,14 @@ def main():
                 response_text += token
                 response_placeholder.markdown(response_text)
 
+    # アシスタント応答後
+    st.session_state["uploaded_image_bytes"] = None
+
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
+
 
 
 
