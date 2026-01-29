@@ -333,8 +333,9 @@ def get_llm_response(user_input, image_bytes=None):
         use_model = model
     
         # 🔽 画像があるのに GPT-3.5 の場合は自動で GPT-4o に切替
-        if image_file and model == "gpt-3.5-turbo":
+        if image_bytes and model == "gpt-3.5-turbo":
             use_model = "gpt-4o"
+
     
         content = [{"type": "text", "text": user_input}]
     
@@ -684,10 +685,6 @@ def main():
         )
     
     # ===== アシスタントの応答 =====
-    image_bytes = st.session_state.get("uploaded_image_bytes")
-    if image_bytes:
-        st.image(image_bytes, use_container_width=True)
-    
     if user_input or image_bytes:
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
@@ -703,6 +700,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
