@@ -284,26 +284,24 @@ def init_room():
 
 def init_messages():
     clear_button = st.sidebar.button("Clear Conversation", key="clear")
-    
-    if "tasks" not in st.session_state:
-    st.session_state.tasks = []
-    
     if clear_button:
-        # 現在の会話を保存してから新規作成
         save_chat_history()
         st.session_state.message_history = [
             ("system", "You are a helpful assistant.")
         ]
         st.rerun()
-    
+
     if "message_history" not in st.session_state:
         st.session_state.message_history = [
-            ("system", f"""
+             ("system", f"""
                 You are a helpful assistant.
                 Current date and time: {datetime.now().strftime('%Y-%m-%d %H:%M')}
                 """)
-
         ]
+
+    # ✅ ここを追加（インデント注意）
+    if "tasks" not in st.session_state:
+        st.session_state.tasks = []
 
 
 def select_model():
@@ -705,6 +703,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
