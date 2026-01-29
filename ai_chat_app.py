@@ -665,8 +665,10 @@ def main():
         # ★ session_state に保存
         st.session_state["uploaded_image_bytes"] = image_bytes
     
+        from io import BytesIO
+        
         with st.chat_message("user"):
-            st.image(image_bytes, use_container_width=True)
+            st.image(BytesIO(image_bytes), use_container_width=True)
 
 
     # ユーザー入力
@@ -688,6 +690,9 @@ def main():
     # ===== アシスタントの応答 =====
     image_bytes = st.session_state.get("uploaded_image_bytes")
     
+    if image_bytes:
+        st.image(BytesIO(image_bytes), use_container_width=True)
+    
     if user_input or image_bytes:
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
@@ -703,6 +708,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
