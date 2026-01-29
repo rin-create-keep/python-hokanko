@@ -677,9 +677,12 @@ def main():
         image_bytes = uploaded_image.read()
         st.session_state["uploaded_image_bytes"] = image_bytes
     
-        # 🔽 ここは表示だけ！
-        with st.chat_message("user"):
-            st.image(BytesIO(image_bytes), use_container_width=True)
+        if image_bytes:
+            img_io = BytesIO(image_bytes)
+            img_io.seek(0)  # ← ★これ超重要
+    
+            with st.chat_message("user"):
+                st.image(img_io, use_container_width=True)
 
     # デバッグ確認
     uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
@@ -712,17 +715,16 @@ def main():
     if not isinstance(image_bytes, (bytes, bytearray)):
         image_bytes = None
     
-    if user_input or uploaded_image_bytes:
+    if user_input:
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             response_text = ""
             for token in get_llm_response(
-                user_input or "",
+                user_input,
                 uploaded_image_bytes
             ):
                 response_text += token
                 response_placeholder.markdown(response_text)
-
 
     # アシスタント応答後
     st.session_state["uploaded_image_bytes"] = None
@@ -731,6 +733,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
