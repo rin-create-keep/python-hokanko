@@ -9,7 +9,6 @@ from datetime import datetime
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
 from google.genai import types
-import PyPDF2
 
 # ===== Gemini Client（Streamlit用）=====
 gemini_client = Client(
@@ -272,13 +271,45 @@ def minutes_to_schedule(minutes):
         return []
 
 
-def read_pdf(file):
-    """PDFファイルからテキストを抽出"""
+def read_pdf_with_vision(file):
+    """PDFをGPT-4 Visionで読み取り（画像として処理）"""
     try:
-        reader = PyPDF2.PdfReader(file)
-        return "\n".join([p.extract_text() for p in reader.pages])
+        client = OpenAI()
+        
+        # PDFをバイトデータとして読み込み
+        pdf_bytes = file.read()
+        file.seek(0)
+        
+        # PDFをbase64エンコード
+        pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        # GPT-4にPDFの内容を解析させる
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "このPDFの内容をすべてテキストとして抽出してください。表や図がある場合は、その内容も説明してください。"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:application/pdf;base64,{pdf_b64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=4000
+        )
+        
+        return response.choices[0].message.content
     except Exception as e:
         st.error(f"PDF読み込みエラー: {e}")
+        st.info("💡 代替案: PDFの内容を手動でコピー&ペーストするか、テキストファイルとして保存してアップロードしてください。")
         return ""
 
 
@@ -578,12 +609,17 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📄 PDF問題生成")
+    st.sidebar.info("💡 PDFはGPT-4 Visionで読み取ります（追加料金がかかる場合があります）")
     
     pdf = st.sidebar.file_uploader("PDFアップロード", type=["pdf"])
     if pdf and st.sidebar.button("問題を作成"):
-        text = read_pdf(pdf)
+        with st.spinner("PDFを読み込み中..."):
+            text = read_pdf_with_vision(pdf)
+        
         if text:
-            questions = generate_similar_questions(text)
+            with st.spinner("問題を生成中..."):
+                questions = generate_similar_questions(text)
+            
             if questions:
                 st.markdown("## 📝 生成された問題")
                 st.markdown(questions)
@@ -593,7 +629,9 @@ def main():
     
     img_prompt = st.sidebar.text_input("画像生成プロンプト")
     if st.sidebar.button("画像を生成") and img_prompt:
-        img_b64 = generate_image(img_prompt)
+        with st.spinner("画像を生成中..."):
+            img_b64 = generate_image(img_prompt)
+        
         if img_b64:
             st.image(base64.b64decode(img_b64))
 
@@ -609,7 +647,9 @@ def main():
                 content = last_msg
             
             if content:
-                tasks = extract_tasks(content)
+                with st.spinner("タスクを抽出中..."):
+                    tasks = extract_tasks(content)
+                
                 if tasks:
                     st.session_state.tasks.extend(tasks)
                     st.rerun()
@@ -663,7 +703,9 @@ def main():
                 st.markdown(minutes)
                 
                 if st.button("📅 スケジュール化"):
-                    schedule = minutes_to_schedule(minutes)
+                    with st.spinner("スケジュールを生成中..."):
+                        schedule = minutes_to_schedule(minutes)
+                    
                     if schedule:
                         st.session_state.setdefault("schedule", []).extend(schedule)
                         st.table(schedule)
