@@ -663,10 +663,9 @@ def main():
     
     if uploaded_image is not None:
         image_bytes = uploaded_image.getvalue()
-        image_io = BytesIO(image_bytes)
     
         with st.chat_message("user"):
-            st.image(image_io, use_container_width=True)
+            st.image(image_bytes, use_container_width=True)
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -697,6 +696,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
