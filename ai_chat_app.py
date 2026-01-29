@@ -653,19 +653,13 @@ def main():
         "画像をアップロード（質問と一緒に送れます）",
         type=["png", "jpg", "jpeg"]
     )
-
-    from io import BytesIO
     
     if uploaded_image is not None:
         image_bytes = uploaded_image.getvalue()
-    
-        # ★ session_state に保存
         st.session_state["uploaded_image_bytes"] = image_bytes
     
-        from io import BytesIO
-        
         with st.chat_message("user"):
-            st.image(BytesIO(image_bytes), use_container_width=True)
+            st.image(image_bytes, use_container_width=True)
 
 
     # ユーザー入力
@@ -677,13 +671,6 @@ def main():
             ("user", {"type": "text", "content": user_input})
         )
     
-    # 画像があれば保存
-    if uploaded_image is not None:
-        image_bytes = uploaded_image.getvalue()
-        st.session_state["uploaded_image_bytes"] = image_bytes
-    
-        with st.chat_message("user"):
-            st.image(image_bytes, use_container_width=True)
     
     # ===== アシスタントの応答 =====
     image_bytes = st.session_state.get("uploaded_image_bytes")
@@ -703,6 +690,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
