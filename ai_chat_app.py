@@ -362,8 +362,8 @@ def get_llm_response(user_input, image_bytes=None):
     # ===== Claude（テキストのみ）=====
     elif model.startswith("claude"):
         # 🔽 画像がアップロードされている場合
-        if image_file:
-            yield "申し訳ありません。このモデルでは画像を読み込むことができません。テキストでご質問ください。"
+        if image_bytes:
+            yield "申し訳ありません。このモデルでは画像を読み込むことができません。"
             return
     
         client = anthropic.Anthropic()
@@ -469,6 +469,7 @@ def display_chat_history_sidebar():
 
 
 def main():
+    image_bytes = None
     init_page()
     init_room()
     init_messages()
@@ -685,6 +686,8 @@ def main():
         )
     
     # ===== アシスタントの応答 =====
+    image_bytes = st.session_state.get("uploaded_image_bytes")
+    
     if user_input or image_bytes:
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
@@ -700,6 +703,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
