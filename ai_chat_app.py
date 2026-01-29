@@ -654,7 +654,9 @@ def main():
                 elif message["type"] == "image":
                     try:
                         img_bytes = base64.b64decode(message["content"])
-                        st.image(BytesIO(img_bytes), use_container_width=True)
+                        img_io = BytesIO(img_bytes)
+                        img_io.seek(0)
+                        st.image(img_io, use_container_width=True)
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
         
@@ -672,15 +674,14 @@ def main():
         "画像をアップロードしてください",
         type=["png", "jpg", "jpeg"]
     )
-    
+
     if uploaded_image:
-        image_bytes = uploaded_image.read()
+        image_bytes = uploaded_image.getvalue()
         st.session_state["uploaded_image_bytes"] = image_bytes
     
         if image_bytes:
             img_io = BytesIO(image_bytes)
-            img_io.seek(0)  # ← ★これ超重要
-    
+            img_io.seek(0)
             with st.chat_message("user"):
                 st.image(img_io, use_container_width=True)
 
@@ -733,6 +734,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
