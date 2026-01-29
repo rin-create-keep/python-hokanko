@@ -766,7 +766,10 @@ def main():
                 and isinstance(uploaded, (bytes, bytearray))
                 and len(uploaded) > 0
             ):
-                st.image(uploaded, use_container_width=True)
+                try:
+                    st.image(uploaded, use_column_width=True)
+                except:
+                    st.image(uploaded)
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
