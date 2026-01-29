@@ -658,15 +658,14 @@ def main():
     if uploaded_image is not None:
         st.session_state["uploaded_image_bytes"] = uploaded_image.getvalue()
     
-    # 表示は session_state に bytes がある場合のみ
-    image_bytes = st.session_state.get("uploaded_image_bytes")
+    # 表示用
+    uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
     
-    if isinstance(image_bytes, (bytes, bytearray)) and len(image_bytes) > 0:
+    if isinstance(uploaded_image_bytes, (bytes, bytearray)) and len(uploaded_image_bytes) > 0:
         with st.chat_message("user"):
-            st.image(image_bytes, use_container_width=True)
+            st.image(uploaded_image_bytes, use_container_width=True)
 
-
-
+    
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         st.chat_message("user").markdown(user_input)
@@ -680,16 +679,17 @@ def main():
     # ===== アシスタントの応答 =====
     image_bytes = st.session_state.get("uploaded_image_bytes")
     
-    if user_input or image_bytes:
+    if user_input or uploaded_image_bytes:
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             response_text = ""
             for token in get_llm_response(
                 user_input or "",
-                image_bytes  # ← bytes を渡す
+                uploaded_image_bytes
             ):
                 response_text += token
                 response_placeholder.markdown(response_text)
+
 
     # アシスタント応答後
     st.session_state["uploaded_image_bytes"] = None
@@ -698,6 +698,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
