@@ -231,18 +231,18 @@ def generate_minutes(transcript):
         client = OpenAI()
         
         prompt = f"""
-以下は会議の文字起こしテキストです。これを読みやすい議事録形式にまとめてください。
-
-【要件】
-- 日時、参加者、議題を推測して記載
-- 主要な議論ポイントを箇条書き
-- 決定事項を明確に記載
-- アクションアイテム（誰が何をするか）を整理
-- 次回の予定があれば記載
-
-【文字起こしテキスト】
-{transcript}
-"""
+        以下は会議の文字起こしテキストです。これを読みやすい議事録形式にまとめてください。
+                
+        【要件】
+        - 日時、参加者、議題を推測して記載
+        - 主要な議論ポイントを箇条書き
+        - 決定事項を明確に記載
+        - アクションアイテム（誰が何をするか）を整理
+        - 次回の予定があれば記載
+                
+        【文字起こしテキスト】
+        {transcript}
+        """
         
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -329,6 +329,16 @@ def get_llm_response(user_input, image_bytes=None):
     # ===== GPT（画像対応）=====
     if model.startswith("gpt"):
         client = OpenAI()
+
+        SYSTEM_PROMPT = """
+        あなたは画像とテキストを扱えるアシスタントです。
+        
+        ルール:
+        - ユーザーが質問していない場合、画像の説明をしてはいけません
+        - ユーザーの質問にのみ答えてください
+        - 「この画像は何？」「どんな画像？」などと聞かれた場合のみ、画像の内容を説明してください
+        - 不要な推測や余計な説明はしないでください
+        """
     
         use_model = model
     
@@ -383,8 +393,17 @@ def get_llm_response(user_input, image_bytes=None):
     # ===== Gemini（画像対応）=====
     elif model.startswith("gemini"):
         client = Client(api_key=os.environ["GOOGLE_API_KEY"])
-    
+
         contents = []
+
+        instruction = """
+        ユーザーの質問にのみ答えてください。
+        質問がない場合は画像について説明しないでください。
+        """
+        
+        contents.append({
+            "text": instruction + "\n\nユーザーの質問:\n" + user_input
+        })
         
         # テキスト
         contents.append({
@@ -670,6 +689,8 @@ def main():
         with st.chat_message("user"):
             st.markdown(user_input)
 
+        image_bytes = st.session_state.get("uploaded_image_bytes")
+    
     # テキストを保存
     st.session_state.message_history.append(
         ("user", {"type": "text", "content": user_input})
@@ -709,6 +730,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
