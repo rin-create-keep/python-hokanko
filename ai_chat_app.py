@@ -650,13 +650,17 @@ def main():
 
     # ===== 画像アップロード =====
     uploaded_image = st.file_uploader(
-        "画像をアップロード（質問と一緒に送れます）",
+        "画像をアップロードしてください",
         type=["png", "jpg", "jpeg"]
     )
     
-    # 新しくアップロードされたときだけ保存
-    if uploaded_image is not None:
-        st.session_state["uploaded_image_bytes"] = uploaded_image.getvalue()
+    if uploaded_image:
+        image_bytes = uploaded_image.read()
+        st.session_state["uploaded_image_bytes"] = image_bytes
+    
+        # 🔽 ここは表示だけ！
+        with st.chat_message("user"):
+            st.image(image_bytes, use_container_width=True)
 
     # デバッグ確認
     uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
@@ -705,6 +709,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
