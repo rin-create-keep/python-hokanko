@@ -488,7 +488,6 @@ def display_chat_history_sidebar():
 
 
 def main():
-    image_bytes = None
     init_page()
     init_room()
     init_messages()
@@ -680,8 +679,12 @@ def main():
     
         with st.chat_message("user"):
             uploaded = st.session_state.get("uploaded_image_bytes")
-            
-            if isinstance(uploaded, (bytes, bytearray)) and len(uploaded) > 0:
+        
+            if (
+                uploaded is not None
+                and isinstance(uploaded, (bytes, bytearray))
+                and len(uploaded) > 0
+            ):
                 st.image(uploaded, use_container_width=True)
 
     # デバッグ確認
@@ -720,6 +723,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
