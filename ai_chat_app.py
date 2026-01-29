@@ -474,6 +474,12 @@ def display_chat_history_sidebar():
 def main():
     init_page()
     init_room()
+    init_messages()
+    select_model()
+
+    # 表示は安全に
+    if st.session_state.get("tasks"):
+        st.table(st.session_state.tasks)
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📄 PDF問題生成")
@@ -501,16 +507,11 @@ def main():
         last = st.session_state.message_history[-1][1]["content"]
         st.session_state.tasks.extend(extract_tasks(last))
     
-    if st.session_state.tasks:
-        st.table(st.session_state.tasks)
     
     # 🔽 修正②：一度だけURLロード
     if "loaded_from_url" not in st.session_state:
         st.session_state.loaded_from_url = True
         load_conversation_from_url()
-
-    init_messages()
-    select_model()
 
 
     st.sidebar.markdown("## 🏠 ルーム")
@@ -694,6 +695,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
