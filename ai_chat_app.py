@@ -716,25 +716,27 @@ def main():
         st.session_state["uploaded_image_bytes"] = None
     
         if user_input:
-        image_bytes = st.session_state.get("uploaded_image_bytes")
+            image_bytes = st.session_state.get("uploaded_image_bytes")
     
-        if not isinstance(image_bytes, (bytes, bytearray)):
-            image_bytes = None
+            if not isinstance(image_bytes, (bytes, bytearray)):
+                image_bytes = None
     
-        with st.chat_message("assistant"):
-            response_placeholder = st.empty()
-            response_text = ""
-            for token in get_llm_response(user_input, image_bytes):
-                response_text += token
-                response_placeholder.markdown(response_text)
+            with st.chat_message("assistant"):
+                response_placeholder = st.empty()
+                response_text = ""
+                for token in get_llm_response(user_input, image_bytes):
+                    response_text += token
+                    response_placeholder.markdown(response_text)
     
-        # 👇 ここで必ずリセット
-        st.session_state["uploaded_image_bytes"] = None
+            # 👇 ここで必ずリセット
+            st.session_state["uploaded_image_bytes"] = None
+
 
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
+
 
 
 
