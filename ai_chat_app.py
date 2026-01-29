@@ -657,27 +657,35 @@ def main():
     # 新しくアップロードされたときだけ保存
     if uploaded_image is not None:
         st.session_state["uploaded_image_bytes"] = uploaded_image.getvalue()
-    
-    # 表示用
-    uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
-
-    if isinstance(uploaded_image_bytes, (bytes, bytearray)) and len(uploaded_image_bytes) > 0:
-        with st.chat_message("user"):
-            st.image(BytesIO(uploaded_image_bytes), use_container_width=True)
 
     # デバッグ確認
     uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
     
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
-        st.chat_message("user").markdown(user_input)
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    st.session_state.message_history.append(
+        ("user", {"type": "text", "content": user_input})
+    )
+
+    # 画像があれば一緒に保存
+    if st.session_state.get("uploaded_image_bytes"):
+        img_b64 = base64.b64encode(
+            st.session_state["uploaded_image_bytes"]
+        ).decode("utf-8")
+
+        st.session_state.message_history.append(
+            ("user", {"type": "image", "content": img_b64})
+        )
 
         # テキストを保存
         st.session_state.message_history.append(
             ("user", {"type": "text", "content": user_input})
         )
-    
-    
+        
+  
     # ===== アシスタントの応答 =====
     image_bytes = st.session_state.get("uploaded_image_bytes")
     
@@ -700,6 +708,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
