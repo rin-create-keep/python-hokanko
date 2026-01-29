@@ -673,8 +673,11 @@ def main():
         )
     
     # 画像があれば保存
-    if uploaded_image:
-    img_b64 = image_to_base64(uploaded_image)
+    if uploaded_image is not None:
+        with st.chat_message("user"):
+            st.image(uploaded_image, use_container_width=True)
+            img_b64 = image_to_base64(uploaded_image)
+
             
     def generate_image(prompt):
         client = OpenAI()
@@ -705,6 +708,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
