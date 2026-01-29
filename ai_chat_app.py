@@ -647,15 +647,14 @@ def main():
     
         with st.chat_message(role):
             if isinstance(message, dict):
+        
                 if message["type"] == "text":
                     st.markdown(message["content"])
-
-                with st.chat_message("user"):
-                    uploaded = st.session_state.get("uploaded_image_bytes")
-                
+        
+                elif message["type"] == "image":
                     try:
-                        if isinstance(uploaded, (bytes, bytearray)) and len(uploaded) > 0:
-                            st.image(uploaded, use_container_width=True)
+                        img_bytes = base64.b64decode(message["content"])
+                        st.image(img_bytes, use_container_width=True)
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
         
@@ -721,3 +720,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
