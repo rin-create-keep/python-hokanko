@@ -692,16 +692,16 @@ def main():
         ("user", {"type": "image", "content": img_b64})
     )
     
-     with st.chat_message("assistant"):
-        response_placeholder = st.empty()
-        response_text = ""
-        for token in get_llm_response(user_input, uploaded_image):
-            response_text += token
-            response_placeholder.markdown(response_text)
-    
-    st.session_state.message_history.append(
-        ("assistant", {"type": "text", "content": response_text})
-    )
+         with st.chat_message("assistant"):
+            response_placeholder = st.empty()
+            response_text = ""
+            for token in get_llm_response(user_input, uploaded_image):
+                response_text += token
+                response_placeholder.markdown(response_text)
+        
+        st.session_state.message_history.append(
+            ("assistant", {"type": "text", "content": response_text})
+        )
 
 
     calc_and_display_costs()
