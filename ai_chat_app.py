@@ -15,6 +15,8 @@ gemini_client = Client(
     api_key=st.secrets["GOOGLE_API_KEY"]
 )
 
+#デバッグ確認
+st.write(type(uploaded_image_bytes), len(uploaded_image_bytes))
 ###### dotenv を利用しない場合は消してください ######
 try:
     from dotenv import load_dotenv
@@ -635,7 +637,7 @@ def main():
                 elif message["type"] == "image":
                     try:
                         img_bytes = base64.b64decode(message["content"])
-                        st.image(img_bytes, use_container_width=True)
+                        st.image(BytesIO(img_bytes), use_container_width=True)
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
         
@@ -660,11 +662,10 @@ def main():
     
     # 表示用
     uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
-    
+
     if isinstance(uploaded_image_bytes, (bytes, bytearray)) and len(uploaded_image_bytes) > 0:
         with st.chat_message("user"):
-            st.image(uploaded_image_bytes, use_container_width=True)
-
+            st.image(BytesIO(uploaded_image_bytes), use_container_width=True)
     
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -698,6 +699,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
