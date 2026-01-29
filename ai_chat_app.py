@@ -405,6 +405,9 @@ def init_messages():
         st.session_state.message_history = [
             ("system", "You are a helpful assistant.")
         ]
+        # アップロードされた画像もクリア
+        if "uploaded_image_bytes" in st.session_state:
+            del st.session_state.uploaded_image_bytes
         st.rerun()
 
     if "message_history" not in st.session_state:
@@ -736,7 +739,7 @@ def main():
                 elif message["type"] == "image":
                     try:
                         img_bytes = base64.b64decode(message["content"])
-                        st.image(img_bytes, use_container_width=True)
+                        st.image(img_bytes, use_column_width=True)
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
         
