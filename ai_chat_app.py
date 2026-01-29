@@ -645,15 +645,19 @@ def main():
         if role == "system":
             continue
     
-        with st.chat_message("user"):
-            uploaded = st.session_state.get("uploaded_image_bytes")
-        
-            try:
-                if isinstance(uploaded, (bytes, bytearray)) and len(uploaded) > 0:
-                    st.image(uploaded, use_container_width=True)
-            except Exception:
-                st.warning("⚠️ 画像を表示できませんでした")
+        with st.chat_message(role):
+            if isinstance(message, dict):
+                if message["type"] == "text":
+                    st.markdown(message["content"])
 
+                with st.chat_message("user"):
+                    uploaded = st.session_state.get("uploaded_image_bytes")
+                
+                    try:
+                        if isinstance(uploaded, (bytes, bytearray)) and len(uploaded) > 0:
+                            st.image(uploaded, use_container_width=True)
+                    except Exception:
+                        st.warning("⚠️ 画像を表示できませんでした")
         
                 elif message["type"] == "minutes":
                     st.markdown("### 📝 議事録")
@@ -717,93 +721,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
