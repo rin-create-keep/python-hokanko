@@ -688,6 +688,8 @@ def main():
   
     # ===== アシスタントの応答 =====
     image_bytes = st.session_state.get("uploaded_image_bytes")
+    if not isinstance(image_bytes, (bytes, bytearray)):
+        image_bytes = None
     
     if user_input or uploaded_image_bytes:
         with st.chat_message("assistant"):
@@ -708,6 +710,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
