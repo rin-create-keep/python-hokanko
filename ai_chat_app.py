@@ -674,40 +674,28 @@ def main():
     
     # 画像があれば保存
     if uploaded_image is not None:
-        with st.chat_message("user"):
-            st.image(uploaded_image, use_container_width=True)
-            img_b64 = image_to_base64(uploaded_image)
-
-            
-    def generate_image(prompt):
-        client = OpenAI()
-        result = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="1024x1024"
-        )
-        return result.data[0].b64_json
-
-    st.session_state.message_history.append(
-        ("user", {"type": "image", "content": img_b64})
-    )
-    
-         with st.chat_message("assistant"):
-            response_placeholder = st.empty()
-            response_text = ""
-            for token in get_llm_response(user_input, uploaded_image):
-                response_text += token
-                response_placeholder.markdown(response_text)
-        
+        img_b64 = image_to_base64(uploaded_image)
         st.session_state.message_history.append(
-            ("assistant", {"type": "text", "content": response_text})
+            ("user", {"type": "image", "content": img_b64})
         )
-
+    
+    # ===== アシスタントの応答 =====
+    with st.chat_message("assistant"):
+        response_placeholder = st.empty()
+        response_text = ""
+        for token in get_llm_response(user_input, uploaded_image):
+            response_text += token
+            response_placeholder.markdown(response_text)
+    
+    st.session_state.message_history.append(
+        ("assistant", {"type": "text", "content": response_text})
+    )
 
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
+
 
 
 
