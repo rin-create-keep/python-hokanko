@@ -659,9 +659,14 @@ def main():
         type=["png", "jpg", "jpeg"]
     )
 
+    from io import BytesIO
+    
     if uploaded_image is not None:
+        image_bytes = uploaded_image.getvalue()
+        image_io = BytesIO(image_bytes)
+    
         with st.chat_message("user"):
-            st.image(uploaded_image, use_container_width=True)
+            st.image(image_io, use_container_width=True)
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -674,27 +679,25 @@ def main():
     
     # 画像があれば保存
     if uploaded_image is not None:
-        img_b64 = image_to_base64(uploaded_image)
+        img_b64 = base64.b64encode(image_bytes).decode("utf-8")
         st.session_state.message_history.append(
             ("user", {"type": "image", "content": img_b64})
         )
     
     # ===== アシスタントの応答 =====
-    with st.chat_message("assistant"):
-        response_placeholder = st.empty()
-        response_text = ""
-        for token in get_llm_response(user_input, uploaded_image):
-            response_text += token
-            response_placeholder.markdown(response_text)
-    
-    st.session_state.message_history.append(
-        ("assistant", {"type": "text", "content": response_text})
-    )
+    if user_input or uploaded_image:
+        with st.chat_message("assistant"):
+            response_placeholder = st.empty()
+            response_text = ""
+            for token in get_llm_response(user_input or "", uploaded_image):
+                response_text += token
+                response_placeholder.markdown(response_text)
 
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
+
 
 
 
