@@ -679,8 +679,10 @@ def main():
         st.session_state["uploaded_image_bytes"] = image_bytes
     
         with st.chat_message("user"):
-            if isinstance(image_bytes, (bytes, bytearray)) and len(image_bytes) > 0:
-                st.image(image_bytes, use_container_width=True)
+            uploaded = st.session_state.get("uploaded_image_bytes")
+            
+            if isinstance(uploaded, (bytes, bytearray)) and len(uploaded) > 0:
+                st.image(uploaded, use_container_width=True)
 
     # デバッグ確認
     uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
@@ -718,6 +720,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
