@@ -679,7 +679,7 @@ def main():
     
         # 🔽 ここは表示だけ！
         with st.chat_message("user"):
-            st.image(image_bytes, use_container_width=True)
+            st.image(BytesIO(image_bytes), use_container_width=True)
 
     # デバッグ確認
     uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
@@ -692,9 +692,10 @@ def main():
         image_bytes = st.session_state.get("uploaded_image_bytes")
     
     # テキストを保存
-    st.session_state.message_history.append(
-        ("user", {"type": "text", "content": user_input})
-    )
+    if user_input:
+        st.session_state.message_history.append(
+            ("user", {"type": "text", "content": user_input})
+        )
 
     # 画像があれば一緒に保存
     if st.session_state.get("uploaded_image_bytes"):
@@ -730,6 +731,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
