@@ -654,7 +654,8 @@ def main():
                 elif message["type"] == "image":
                     try:
                         img_bytes = base64.b64decode(message["content"])
-                        st.image(img_bytes, use_container_width=True)
+                        if img_bytes:
+                            st.image(img_bytes, use_container_width=True)
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
         
@@ -678,7 +679,8 @@ def main():
         st.session_state["uploaded_image_bytes"] = image_bytes
     
         with st.chat_message("user"):
-            st.image(image_bytes, use_container_width=True)
+            if isinstance(image_bytes, (bytes, bytearray)) and len(image_bytes) > 0:
+                st.image(image_bytes, use_container_width=True)
 
     # デバッグ確認
     uploaded_image_bytes = st.session_state.get("uploaded_image_bytes")
@@ -687,50 +689,36 @@ def main():
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         with st.chat_message("user"):
             st.markdown(user_input)
-
+    
         image_bytes = st.session_state.get("uploaded_image_bytes")
     
-    # テキストを保存
-    if user_input:
+        # 保存
         st.session_state.message_history.append(
             ("user", {"type": "text", "content": user_input})
         )
     
-        # 👇 画像がある場合のみ、ここで保存
-        if st.session_state.get("uploaded_image_bytes"):
-            img_b64 = base64.b64encode(
-                st.session_state["uploaded_image_bytes"]
-            ).decode("utf-8")
-    
+        if isinstance(image_bytes, (bytes, bytearray)):
+            img_b64 = base64.b64encode(image_bytes).decode("utf-8")
             st.session_state.message_history.append(
                 ("user", {"type": "image", "content": img_b64})
             )
-
-
-        # アシスタント応答後
+    
+        # アシスタント
+        with st.chat_message("assistant"):
+            response_placeholder = st.empty()
+            response_text = ""
+            for token in get_llm_response(user_input, image_bytes):
+                response_text += token
+                response_placeholder.markdown(response_text)
+    
+        # 👇 最後にだけリセット
         st.session_state["uploaded_image_bytes"] = None
-    
-        if user_input:
-            image_bytes = st.session_state.get("uploaded_image_bytes")
-    
-            if not isinstance(image_bytes, (bytes, bytearray)):
-                image_bytes = None
-    
-            with st.chat_message("assistant"):
-                response_placeholder = st.empty()
-                response_text = ""
-                for token in get_llm_response(user_input, image_bytes):
-                    response_text += token
-                    response_placeholder.markdown(response_text)
-    
-            # 👇 ここで必ずリセット
-            st.session_state["uploaded_image_bytes"] = None
-
 
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
+
 
 
 
