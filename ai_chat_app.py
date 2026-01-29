@@ -666,10 +666,9 @@ def main():
     if user_input := st.chat_input("聞きたいことを入力してね！"):
         st.chat_message("user").markdown(user_input)
 
-    
-    # テキストを保存
-    st.session_state.message_history.append(
-        ("user", {"type": "text", "content": user_input})
+        # テキストを保存
+        st.session_state.message_history.append(
+            ("user", {"type": "text", "content": user_input})
         )
     
     # 画像があれば保存
@@ -695,6 +694,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
