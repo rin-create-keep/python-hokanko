@@ -9,7 +9,6 @@ from datetime import datetime
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
 from google.genai import types
-import re
 
 # ===== Gemini Client（Streamlit用）=====
 gemini_client = Client(
@@ -55,6 +54,271 @@ def init_page():
     st.sidebar.title("Options")
 
 
+# ========== 新機能: タスク割り当て管理 ==========
+def init_task_assignments():
+    """タスク割り当てデータの初期化"""
+    if "task_assignments" not in st.session_state:
+        st.session_state.task_assignments = []
+
+def add_task_assignment(task_name, assigned_to, deadline=None, description=""):
+    """タスク割り当てを追加"""
+    task = {
+        "id": len(st.session_state.task_assignments) + 1,
+        "task_name": task_name,
+        "assigned_to": assigned_to,
+        "deadline": deadline,
+        "description": description,
+        "status": "未着手",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    st.session_state.task_assignments.append(task)
+
+def parse_minutes_for_tasks(minutes_text):
+    """議事録からタスクを抽出してAIに提案させる"""
+    try:
+        client = OpenAI()
+        
+        prompt = f"""
+以下の議事録から、タスクとその担当者を抽出してください。
+JSON形式で出力してください。
+
+形式:
+{{
+    "tasks": [
+        {{
+            "task_name": "タスク名",
+            "assigned_to": "担当者名",
+            "deadline": "期限（YYYY-MM-DD形式、不明な場合はnull）",
+            "description": "タスクの詳細"
+        }}
+    ]
+}}
+
+議事録:
+{minutes_text}
+"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "あなたはタスク管理のエキスパートです。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        return result.get("tasks", [])
+    except Exception as e:
+        st.error(f"タスク抽出エラー: {e}")
+        return []
+
+def display_task_assignment_ui():
+    """タスク割り当てUIを表示"""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📋 タスク管理")
+    
+    if st.sidebar.button("タスク管理画面を開く"):
+        st.session_state.show_task_manager = True
+    
+    if st.session_state.get("show_task_manager", False):
+        with st.expander("📋 タスク割り当て管理", expanded=True):
+            st.markdown("### 新規タスクを追加")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                task_name = st.text_input("タスク名")
+                assigned_to = st.text_input("担当者")
+            with col2:
+                deadline = st.date_input("期限")
+                description = st.text_area("説明")
+            
+            if st.button("タスクを追加"):
+                if task_name and assigned_to:
+                    add_task_assignment(task_name, assigned_to, deadline.strftime("%Y-%m-%d"), description)
+                    st.success(f"タスク「{task_name}」を{assigned_to}に割り当てました")
+                    st.rerun()
+            
+            st.markdown("---")
+            st.markdown("### 現在のタスク一覧")
+            
+            if st.session_state.task_assignments:
+                for task in st.session_state.task_assignments:
+                    with st.container():
+                        col1, col2, col3 = st.columns([3, 2, 1])
+                        with col1:
+                            st.markdown(f"**{task['task_name']}**")
+                            st.caption(task['description'])
+                        with col2:
+                            st.markdown(f"👤 {task['assigned_to']}")
+                            st.caption(f"期限: {task['deadline']}")
+                        with col3:
+                            status = st.selectbox(
+                                "状態",
+                                ["未着手", "進行中", "完了"],
+                                key=f"status_{task['id']}",
+                                index=["未着手", "進行中", "完了"].index(task['status'])
+                            )
+                            task['status'] = status
+                        st.markdown("---")
+            else:
+                st.info("タスクがまだありません")
+
+
+# ========== 新機能: スケジュール管理 ==========
+def init_schedule():
+    """スケジュールデータの初期化"""
+    if "schedule_items" not in st.session_state:
+        st.session_state.schedule_items = []
+
+def add_schedule_item(date, time, title, description="", participants=""):
+    """スケジュールアイテムを追加"""
+    item = {
+        "id": len(st.session_state.schedule_items) + 1,
+        "date": date,
+        "time": time,
+        "title": title,
+        "description": description,
+        "participants": participants,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    st.session_state.schedule_items.append(item)
+
+def transfer_minutes_to_schedule(minutes_text):
+    """議事録からスケジュールを抽出"""
+    try:
+        client = OpenAI()
+        
+        prompt = f"""
+以下の議事録から、今後の予定やミーティングを抽出してください。
+JSON形式で出力してください。
+
+形式:
+{{
+    "schedules": [
+        {{
+            "date": "日付（YYYY-MM-DD形式）",
+            "time": "時刻（HH:MM形式、不明な場合はnull）",
+            "title": "予定のタイトル",
+            "description": "詳細",
+            "participants": "参加者（カンマ区切り）"
+        }}
+    ]
+}}
+
+議事録:
+{minutes_text}
+"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "あなたはスケジュール管理のエキスパートです。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        return result.get("schedules", [])
+    except Exception as e:
+        st.error(f"スケジュール抽出エラー: {e}")
+        return []
+
+def display_schedule_ui():
+    """スケジュール管理UIを表示"""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📅 スケジュール")
+    
+    if st.sidebar.button("スケジュール画面を開く"):
+        st.session_state.show_schedule = True
+    
+    if st.session_state.get("show_schedule", False):
+        with st.expander("📅 スケジュール管理", expanded=True):
+            st.markdown("### スケジュール一覧")
+            
+            if st.session_state.schedule_items:
+                sorted_items = sorted(st.session_state.schedule_items, key=lambda x: (x['date'], x['time'] or ""))
+                
+                for item in sorted_items:
+                    with st.container():
+                        st.markdown(f"### 📌 {item['title']}")
+                        st.markdown(f"**日時:** {item['date']} {item['time'] or ''}")
+                        if item['description']:
+                            st.markdown(f"**詳細:** {item['description']}")
+                        if item['participants']:
+                            st.markdown(f"**参加者:** {item['participants']}")
+                        st.markdown("---")
+            else:
+                st.info("スケジュールがまだありません")
+
+
+# ========== 新機能: ルーム管理 ==========
+def init_rooms():
+    """ルームデータの初期化"""
+    if "rooms" not in st.session_state:
+        st.session_state.rooms = {
+            "default": {
+                "name": "デフォルトルーム",
+                "members": [],
+                "messages": [("system", "You are a helpful assistant.")]
+            }
+        }
+    if "current_room" not in st.session_state:
+        st.session_state.current_room = "default"
+
+def create_room(room_name, members):
+    """新しいルームを作成"""
+    room_id = f"room_{len(st.session_state.rooms)}"
+    st.session_state.rooms[room_id] = {
+        "name": room_name,
+        "members": members,
+        "messages": [("system", f"このルームは{room_name}です。メンバー: {', '.join(members)}")]
+    }
+    return room_id
+
+def display_room_ui():
+    """ルーム管理UIを表示"""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 👥 ルーム管理")
+    
+    # ルーム作成
+    with st.sidebar.expander("➕ 新しいルームを作成"):
+        room_name = st.text_input("ルーム名")
+        members_input = st.text_input("メンバー（カンマ区切り）")
+        
+        if st.button("ルームを作成"):
+            if room_name:
+                members = [m.strip() for m in members_input.split(",")] if members_input else []
+                room_id = create_room(room_name, members)
+                st.success(f"ルーム「{room_name}」を作成しました")
+                st.session_state.current_room = room_id
+                st.rerun()
+    
+    # ルーム選択
+    st.sidebar.markdown("### 現在のルーム")
+    room_options = {room_id: data["name"] for room_id, data in st.session_state.rooms.items()}
+    
+    selected_room = st.sidebar.selectbox(
+        "ルームを選択",
+        options=list(room_options.keys()),
+        format_func=lambda x: room_options[x],
+        index=list(room_options.keys()).index(st.session_state.current_room)
+    )
+    
+    if selected_room != st.session_state.current_room:
+        st.session_state.current_room = selected_room
+        st.session_state.message_history = st.session_state.rooms[selected_room]["messages"]
+        st.rerun()
+    
+    # 現在のルーム情報
+    current_room_data = st.session_state.rooms[st.session_state.current_room]
+    st.sidebar.info(f"📍 {current_room_data['name']}")
+    if current_room_data['members']:
+        st.sidebar.caption(f"メンバー: {', '.join(current_room_data['members'])}")
+
+
+# ========== 既存の関数（変更なし）==========
 def save_chat_history():
     """現在の会話を履歴に保存"""
     if "message_history" not in st.session_state or len(st.session_state.message_history) <= 1:
@@ -78,8 +342,7 @@ def save_chat_history():
         "title": title,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "messages": st.session_state.message_history.copy(),
-        "model": st.session_state.get("model_name", "gpt-3.5-turbo"),
-        "room": st.session_state.get("current_room", "default")
+        "model": st.session_state.get("model_name", "gpt-3.5-turbo")
     }
     
     st.session_state.chat_histories.insert(0, chat_data)
@@ -266,9 +529,11 @@ def init_messages():
     if clear_button:
         # 現在の会話を保存してから新規作成
         save_chat_history()
-        st.session_state.message_history = [
+        # ルーム対応: 現在のルームのメッセージをクリア
+        st.session_state.rooms[st.session_state.current_room]["messages"] = [
             ("system", "You are a helpful assistant.")
         ]
+        st.session_state.message_history = st.session_state.rooms[st.session_state.current_room]["messages"]
         st.rerun()
     
     if "message_history" not in st.session_state:
@@ -297,11 +562,30 @@ def select_model():
 
 
 def get_llm_response(user_input: str, image_file=None):
-    model = st.session_state.model_name
+    """LLMレスポンスを取得（時刻・日付対応を追加）"""
+    # 時刻・日付に関する質問を検出
+    time_keywords = ["時間", "何時", "今何時", "time", "いま"]
+    date_keywords = ["日付", "今日", "date", "曜日", "何日"]
     
-    # 現在の日時情報を追加
-    current_time = datetime.now().strftime("%Y年%m月%d日 %H時%M分")
-    enhanced_input = f"[現在時刻: {current_time}]\n{user_input}"
+    is_time_query = any(keyword in user_input.lower() for keyword in time_keywords)
+    is_date_query = any(keyword in user_input.lower() for keyword in date_keywords)
+    
+    if is_time_query or is_date_query:
+        now = datetime.now()
+        
+        if is_time_query:
+            current_time = now.strftime("%H:%M:%S")
+            yield f"現在の時刻は {current_time} です。"
+            return
+        
+        if is_date_query:
+            current_date = now.strftime("%Y年%m月%d日 (%A)")
+            weekday_jp = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
+            weekday = weekday_jp[now.weekday()]
+            yield f"今日は {now.strftime('%Y年%m月%d日')} {weekday}です。"
+            return
+    
+    model = st.session_state.model_name
 
     # ===== GPT（画像対応）=====
     if model.startswith("gpt"):
@@ -313,7 +597,7 @@ def get_llm_response(user_input: str, image_file=None):
         if image_file and model == "gpt-3.5-turbo":
             use_model = "gpt-4o"
     
-        content = [{"type": "text", "text": enhanced_input}]
+        content = [{"type": "text", "text": user_input}]
     
         if image_file:
             img_b64 = image_to_base64(image_file)
@@ -349,7 +633,7 @@ def get_llm_response(user_input: str, image_file=None):
             messages=[
                 {
                     "role": "user",
-                    "content": enhanced_input
+                    "content": user_input
                 }
             ],
         ) as stream:
@@ -364,7 +648,7 @@ def get_llm_response(user_input: str, image_file=None):
         
         # テキスト
         contents.append({
-            "text": enhanced_input
+            "text": user_input
         })
         
         # 画像がある場合
@@ -405,7 +689,11 @@ def calc_and_display_costs():
     output_count = 0
     input_count = 0
     for role, message in st.session_state.message_history:
-        token_count = get_message_counts(message)
+        if isinstance(message, dict):
+            token_count = get_message_counts(message.get("content", ""))
+        else:
+            token_count = get_message_counts(message)
+            
         if role == "assistant":
             output_count += token_count
         else:
@@ -437,14 +725,7 @@ def display_chat_history_sidebar():
         st.sidebar.info("まだ保存された会話はありません")
         return
     
-    # 現在のルームでフィルタリング
-    current_room = st.session_state.get("current_room", "default")
-    filtered_histories = [
-        (i, chat) for i, chat in enumerate(st.session_state.chat_histories)
-        if chat.get("room", "default") == current_room
-    ]
-    
-    for i, chat in filtered_histories:
+    for i, chat in enumerate(st.session_state.chat_histories):
         col1, col2 = st.sidebar.columns([3, 1])
         with col1:
             if st.button(f"📝 {chat['title']}", key=f"load_{i}"):
@@ -455,239 +736,13 @@ def display_chat_history_sidebar():
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
 
-# ========== 新機能: タスク割り振り ==========
-def task_assignment_feature():
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 👥 タスク割り振り")
-    
-    if "tasks" not in st.session_state:
-        st.session_state.tasks = []
-    
-    with st.sidebar.expander("新しいタスクを追加"):
-        task_name = st.text_input("タスク名", key="new_task_name")
-        assignee = st.text_input("担当者", key="new_task_assignee")
-        deadline = st.date_input("期限", key="new_task_deadline")
-        
-        if st.button("タスクを追加", key="add_task_btn"):
-            if task_name and assignee:
-                st.session_state.tasks.append({
-                    "name": task_name,
-                    "assignee": assignee,
-                    "deadline": deadline.strftime("%Y-%m-%d"),
-                    "status": "未着手"
-                })
-                st.success(f"タスク '{task_name}' を追加しました！")
-                st.rerun()
-    
-    if st.session_state.tasks:
-        st.sidebar.markdown("### 📋 タスク一覧")
-        for idx, task in enumerate(st.session_state.tasks):
-            with st.sidebar.container():
-                col1, col2 = st.sidebar.columns([4, 1])
-                with col1:
-                    st.markdown(f"**{task['name']}**")
-                    st.caption(f"担当: {task['assignee']} | 期限: {task['deadline']}")
-                with col2:
-                    if st.button("✓", key=f"complete_task_{idx}"):
-                        st.session_state.tasks[idx]["status"] = "完了"
-                        st.rerun()
-
-
-# ========== 新機能: 画像生成 ==========
-def image_generation_feature():
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 🎨 画像生成")
-    
-    with st.sidebar.expander("DALL-E で画像を生成"):
-        prompt = st.text_area("生成したい画像の説明", key="image_gen_prompt")
-        
-        if st.button("画像を生成", key="generate_image_btn"):
-            if prompt:
-                try:
-                    client = OpenAI()
-                    with st.spinner("画像を生成中..."):
-                        response = client.images.generate(
-                            model="dall-e-3",
-                            prompt=prompt,
-                            size="1024x1024",
-                            quality="standard",
-                            n=1,
-                        )
-                    
-                    image_url = response.data[0].url
-                    
-                    # 画像をチャット履歴に追加
-                    st.session_state.message_history.append(
-                        ("assistant", {"type": "generated_image", "content": image_url, "prompt": prompt})
-                    )
-                    st.success("画像を生成しました！")
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"画像生成エラー: {e}")
-
-
-# ========== 新機能: PDF問題作成 ==========
-def pdf_problem_generator():
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 📄 PDF問題作成")
-    
-    pdf_file = st.sidebar.file_uploader("PDFをアップロード", type=["pdf"], key="pdf_uploader")
-    
-    if pdf_file and st.sidebar.button("類似問題を作成", key="create_problems_btn"):
-        try:
-            # PyPDF2を使ってPDFを読み込む（外部APIは使わない）
-            import PyPDF2
-            
-            pdf_reader = PyPDF2.PdfReader(pdf_file)
-            text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text()
-            
-            # GPTで類似問題を作成
-            client = OpenAI()
-            prompt = f"""
-以下のPDFから抽出したテキストを分析し、同じような形式・難易度の問題を3問作成してください。
-
-【抽出テキスト】
-{text[:2000]}
-
-【要件】
-- 元の問題の形式を踏襲すること
-- 難易度を同程度に保つこと
-- 解答と解説も含めること
-"""
-            
-            with st.spinner("問題を作成中..."):
-                response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": "あなたは優秀な問題作成者です。"},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.7
-                )
-            
-            problems = response.choices[0].message.content
-            
-            # チャット履歴に追加
-            st.session_state.message_history.append(
-                ("assistant", {"type": "problems", "content": problems})
-            )
-            st.success("問題を作成しました！")
-            st.rerun()
-            
-        except Exception as e:
-            st.error(f"PDF処理エラー: {e}")
-            st.info("PyPDF2がインストールされていない可能性があります: pip install PyPDF2")
-
-
-# ========== 新機能: 議事録→スケジュール変換 ==========
-def minutes_to_schedule():
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 📅 議事録→スケジュール")
-    
-    if st.sidebar.button("議事録からスケジュール作成", key="create_schedule_btn"):
-        # 最新の議事録を取得
-        minutes_content = None
-        for role, msg in reversed(st.session_state.message_history):
-            if isinstance(msg, dict) and msg.get("type") == "minutes":
-                minutes_content = msg.get("content")
-                break
-        
-        if minutes_content:
-            try:
-                client = OpenAI()
-                prompt = f"""
-以下の議事録から、スケジュール形式のドキュメントを作成してください。
-
-【要件】
-- 日時、場所、参加者を記載
-- タスクと担当者を一覧化
-- 期限がある項目は明記
-- Googleカレンダーなどにコピペできる形式
-
-【議事録】
-{minutes_content}
-"""
-                
-                with st.spinner("スケジュールを作成中..."):
-                    response = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[
-                            {"role": "system", "content": "あなたはスケジュール管理の専門家です。"},
-                            {"role": "user", "content": prompt}
-                        ],
-                        temperature=0.3
-                    )
-                
-                schedule = response.choices[0].message.content
-                
-                st.session_state.message_history.append(
-                    ("assistant", {"type": "schedule", "content": schedule})
-                )
-                st.success("スケジュールを作成しました！")
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"スケジュール作成エラー: {e}")
-        else:
-            st.warning("議事録が見つかりません。先に議事録を作成してください。")
-
-
-# ========== 新機能: ルーム管理 ==========
-def room_management():
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 🏠 ルーム管理")
-    
-    if "rooms" not in st.session_state:
-        st.session_state.rooms = {"default": {"name": "デフォルト", "members": []}}
-    
-    if "current_room" not in st.session_state:
-        st.session_state.current_room = "default"
-    
-    # ルーム選択
-    room_options = {k: v["name"] for k, v in st.session_state.rooms.items()}
-    selected_room = st.sidebar.selectbox(
-        "現在のルーム",
-        options=list(room_options.keys()),
-        format_func=lambda x: room_options[x],
-        key="room_selector"
-    )
-    
-    if selected_room != st.session_state.current_room:
-        st.session_state.current_room = selected_room
-        save_chat_history()
-        st.session_state.message_history = [
-            ("system", "You are a helpful assistant.")
-        ]
-        st.rerun()
-    
-    # 新しいルームを作成
-    with st.sidebar.expander("新しいルームを作成"):
-        room_name = st.text_input("ルーム名", key="new_room_name")
-        members = st.text_area("メンバー（改行区切り）", key="new_room_members")
-        
-        if st.button("ルームを作成", key="create_room_btn"):
-            if room_name:
-                room_id = f"room_{len(st.session_state.rooms)}"
-                st.session_state.rooms[room_id] = {
-                    "name": room_name,
-                    "members": [m.strip() for m in members.split("\n") if m.strip()]
-                }
-                st.success(f"ルーム '{room_name}' を作成しました！")
-                st.rerun()
-    
-    # 現在のルーム情報を表示
-    current_room_info = st.session_state.rooms[st.session_state.current_room]
-    if current_room_info["members"]:
-        st.sidebar.markdown("### 👥 メンバー")
-        for member in current_room_info["members"]:
-            st.sidebar.markdown(f"- {member}")
-
-
 def main():
     init_page()
+    
+    # 新機能の初期化
+    init_task_assignments()
+    init_schedule()
+    init_rooms()
 
     # 🔽 修正②：一度だけURLロード
     if "loaded_from_url" not in st.session_state:
@@ -697,6 +752,10 @@ def main():
     init_messages()
     select_model()
 
+    # 新機能UI
+    display_room_ui()
+    display_task_assignment_ui()
+    display_schedule_ui()
     
     # チャット履歴表示
     display_chat_history_sidebar()
@@ -712,7 +771,7 @@ def main():
             st.sidebar.caption("※ 共有URLには要約された会話のみが含まれます")
 
     
-    # 音声議事録機能
+    # 音声議事録機能（拡張版）
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🎙️ 音声議事録")
     audio_file = st.sidebar.file_uploader(
@@ -736,10 +795,42 @@ def main():
                 st.markdown("## 📝 生成された議事録")
                 st.markdown(minutes)
             
-                # 🔽 チャット履歴に保存
+                # チャット履歴に保存
                 st.session_state.message_history.append(
                     ("assistant", {"type": "minutes", "content": minutes})
                 )
+                
+                # 新機能: タスクを自動抽出
+                st.markdown("---")
+                st.markdown("### 📋 タスクを抽出中...")
+                tasks = parse_minutes_for_tasks(minutes)
+                
+                if tasks:
+                    st.success(f"{len(tasks)}件のタスクを抽出しました")
+                    for task in tasks:
+                        add_task_assignment(
+                            task["task_name"],
+                            task["assigned_to"],
+                            task.get("deadline"),
+                            task.get("description", "")
+                        )
+                    st.info("タスク管理画面で確認できます")
+                
+                # 新機能: スケジュールを自動抽出
+                st.markdown("### 📅 スケジュールを抽出中...")
+                schedules = transfer_minutes_to_schedule(minutes)
+                
+                if schedules:
+                    st.success(f"{len(schedules)}件の予定を抽出しました")
+                    for schedule in schedules:
+                        add_schedule_item(
+                            schedule["date"],
+                            schedule.get("time"),
+                            schedule["title"],
+                            schedule.get("description", ""),
+                            schedule.get("participants", "")
+                        )
+                    st.info("スケジュール画面で確認できます")
                 
                 # ダウンロードボタン
                 st.download_button(
@@ -748,13 +839,6 @@ def main():
                     file_name="minutes.txt",
                     mime="text/plain"
                 )
-
-    # ========== 新機能を呼び出し ==========
-    task_assignment_feature()
-    image_generation_feature()
-    pdf_problem_generator()
-    minutes_to_schedule()
-    room_management()
 
     # チャット履歴を表示
     for role, message in st.session_state.get("message_history", []):
@@ -771,6 +855,7 @@ def main():
                         image_bytes = base64.b64decode(message["content"])
                         st.image(
                             BytesIO(image_bytes),
+                            caption="アップロードされた画像",
                             use_container_width=True
                         )
                     except Exception:
@@ -778,18 +863,6 @@ def main():
         
                 elif message["type"] == "minutes":
                     st.markdown("### 📝 議事録")
-                    st.markdown(message["content"])
-                
-                elif message["type"] == "generated_image":
-                    st.markdown(f"**生成プロンプト:** {message.get('prompt', '')}")
-                    st.image(message["content"], use_container_width=True)
-                
-                elif message["type"] == "problems":
-                    st.markdown("### 📚 作成された問題")
-                    st.markdown(message["content"])
-                
-                elif message["type"] == "schedule":
-                    st.markdown("### 📅 スケジュール")
                     st.markdown(message["content"])
         
             else:
@@ -802,6 +875,10 @@ def main():
         "画像をアップロード（質問と一緒に送れます）",
         type=["png", "jpg", "jpeg"]
     )
+    
+    # 画像プレビュー表示（新機能）
+    if uploaded_image:
+        st.image(uploaded_image, caption="アップロードされた画像（送信前プレビュー）", use_container_width=True)
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -819,13 +896,13 @@ def main():
                 ("user", {"type": "image", "content": img_b64})
             )
             
-            # 画像をチャットに表示
+            # チャット画面に画像を表示（新機能）
             with st.chat_message("user"):
-                try:
-                    image_bytes = base64.b64decode(img_b64)
-                    st.image(BytesIO(image_bytes), use_container_width=True)
-                except Exception as e:
-                    st.warning(f"⚠️ 画像表示エラー: {e}")
+                st.image(
+                    BytesIO(base64.b64decode(img_b64)),
+                    caption="送信した画像",
+                    use_container_width=True
+                )
     
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
@@ -837,6 +914,9 @@ def main():
         st.session_state.message_history.append(
             ("assistant", {"type": "text", "content": response_text})
         )
+        
+        # ルームのメッセージも更新
+        st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
 
 
     calc_and_display_costs()
