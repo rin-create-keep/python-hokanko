@@ -61,6 +61,8 @@ def init_task_assignment():
         st.session_state.tasks = []
     if "team_members" not in st.session_state:
         st.session_state.team_members = []
+    if "show_tasks" not in st.session_state:
+        st.session_state.show_tasks = True
 
 
 def add_task_assignment(task_name, assignee, deadline=None):
@@ -77,10 +79,40 @@ def add_task_assignment(task_name, assignee, deadline=None):
     return task
 
 
+def delete_task(index):
+    """タスクを削除"""
+    if 0 <= index < len(st.session_state.tasks):
+        st.session_state.tasks.pop(index)
+        st.rerun()
+
+
+def update_task(index, task_name=None, assignee=None, deadline=None, status=None):
+    """タスクを更新"""
+    if 0 <= index < len(st.session_state.tasks):
+        if task_name is not None:
+            st.session_state.tasks[index]["name"] = task_name
+        if assignee is not None:
+            st.session_state.tasks[index]["assignee"] = assignee
+        if deadline is not None:
+            st.session_state.tasks[index]["deadline"] = deadline
+        if status is not None:
+            st.session_state.tasks[index]["status"] = status
+
+
 def display_task_management():
     """タスク管理UIを表示"""
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📋 タスク管理")
+    
+    # 表示/非表示切り替え
+    st.session_state.show_tasks = st.sidebar.checkbox(
+        "タスクを表示",
+        value=st.session_state.show_tasks,
+        key="toggle_tasks"
+    )
+    
+    if not st.session_state.show_tasks:
+        return
     
     # メンバー管理
     with st.sidebar.expander("👥 チームメンバー管理"):
@@ -108,25 +140,53 @@ def display_task_management():
                 st.success(f"タスク「{task_name}」を追加しました")
                 st.rerun()
     
-    # タスク一覧表示
+    # タスク一覧表示と編集
     if st.session_state.tasks:
         st.sidebar.write("### 📝 タスク一覧")
         for i, task in enumerate(st.session_state.tasks):
-            with st.sidebar.container():
-                col1, col2 = st.sidebar.columns([4, 1])
-                with col1:
-                    st.write(f"**{task['name']}**")
-                    st.caption(f"担当: {task['assignee']} | 期限: {task.get('deadline', '未設定')}")
-                with col2:
+            with st.sidebar.expander(f"📌 {task['name']}", expanded=False):
+                # 編集モード
+                edit_mode = st.checkbox("編集モード", key=f"edit_task_{i}")
+                
+                if edit_mode:
+                    # 編集フォーム
+                    new_name = st.text_input("タスク名", value=task["name"], key=f"edit_name_{i}")
+                    new_assignee = st.selectbox(
+                        "担当者",
+                        st.session_state.team_members,
+                        index=st.session_state.team_members.index(task["assignee"]) if task["assignee"] in st.session_state.team_members else 0,
+                        key=f"edit_assignee_{i}"
+                    )
+                    if task.get("deadline"):
+                        try:
+                            default_date = datetime.strptime(task["deadline"], "%Y-%m-%d").date()
+                        except:
+                            default_date = datetime.now().date()
+                    else:
+                        default_date = datetime.now().date()
+                    new_deadline = st.date_input("期限", value=default_date, key=f"edit_deadline_{i}")
                     new_status = st.selectbox(
                         "状態",
                         ["未着手", "進行中", "完了"],
                         index=["未着手", "進行中", "完了"].index(task['status']),
-                        key=f"task_status_{i}"
+                        key=f"edit_status_{i}"
                     )
-                    if new_status != task['status']:
-                        st.session_state.tasks[i]['status'] = new_status
-                        st.rerun()
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("保存", key=f"save_task_{i}"):
+                            update_task(i, new_name, new_assignee, new_deadline.strftime("%Y-%m-%d"), new_status)
+                            st.success("更新しました")
+                            st.rerun()
+                    with col2:
+                        if st.button("🗑️ 削除", key=f"delete_task_{i}"):
+                            delete_task(i)
+                else:
+                    # 表示モード
+                    st.write(f"**担当**: {task['assignee']}")
+                    st.write(f"**期限**: {task.get('deadline', '未設定')}")
+                    st.write(f"**状態**: {task['status']}")
+                    st.caption(f"作成日時: {task['created_at']}")
 
 
 # ===== 新機能2: 議事録からスケジュール生成 =====
@@ -192,26 +252,158 @@ def extract_schedule_from_minutes(minutes_text):
         return None
 
 
+def add_schedule_manually(title, date, start_time, end_time, location, participants):
+    """手動でスケジュールを追加"""
+    schedule = {
+        "id": len(st.session_state.schedules) + 1,
+        "title": title,
+        "date": date,
+        "start_time": start_time,
+        "end_time": end_time,
+        "location": location,
+        "participants": participants,
+        "actions": [],
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    st.session_state.schedules.append(schedule)
+    return schedule
+
+
+def delete_schedule(index):
+    """スケジュールを削除"""
+    if 0 <= index < len(st.session_state.schedules):
+        st.session_state.schedules.pop(index)
+        st.rerun()
+
+
+def update_schedule(index, title=None, date=None, start_time=None, end_time=None, location=None, participants=None):
+    """スケジュールを更新"""
+    if 0 <= index < len(st.session_state.schedules):
+        if title is not None:
+            st.session_state.schedules[index]["title"] = title
+        if date is not None:
+            st.session_state.schedules[index]["date"] = date
+        if start_time is not None:
+            st.session_state.schedules[index]["start_time"] = start_time
+        if end_time is not None:
+            st.session_state.schedules[index]["end_time"] = end_time
+        if location is not None:
+            st.session_state.schedules[index]["location"] = location
+        if participants is not None:
+            st.session_state.schedules[index]["participants"] = participants
+
+
 def display_schedule():
     """スケジュールを表示"""
     if "schedules" not in st.session_state:
         st.session_state.schedules = []
+    if "show_schedules" not in st.session_state:
+        st.session_state.show_schedules = True
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📅 スケジュール")
     
+    # 表示/非表示切り替え
+    st.session_state.show_schedules = st.sidebar.checkbox(
+        "スケジュールを表示",
+        value=st.session_state.show_schedules,
+        key="toggle_schedules"
+    )
+    
+    if not st.session_state.show_schedules:
+        return
+    
+    # 新規スケジュール追加
+    with st.sidebar.expander("➕ 新規スケジュール追加"):
+        new_title = st.text_input("タイトル", key="schedule_title")
+        new_date = st.date_input("日付", key="schedule_date")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            new_start_time = st.time_input("開始時刻", key="schedule_start")
+        with col2:
+            new_end_time = st.time_input("終了時刻", key="schedule_end")
+        
+        new_location = st.text_input("場所（任意）", key="schedule_location")
+        new_participants_text = st.text_input("参加者（カンマ区切り）", key="schedule_participants")
+        
+        if st.button("スケジュール追加", key="add_schedule_btn"):
+            if new_title:
+                participants = [p.strip() for p in new_participants_text.split(",")] if new_participants_text else []
+                add_schedule_manually(
+                    new_title,
+                    new_date.strftime("%Y-%m-%d"),
+                    new_start_time.strftime("%H:%M"),
+                    new_end_time.strftime("%H:%M"),
+                    new_location,
+                    participants
+                )
+                st.success(f"スケジュール「{new_title}」を追加しました")
+                st.rerun()
+    
+    # スケジュール一覧表示と編集
     if st.session_state.schedules:
-        for schedule in st.session_state.schedules:
-            with st.sidebar.expander(f"📌 {schedule['title']}"):
-                st.write(f"**日時**: {schedule['date']} {schedule.get('start_time', '')} - {schedule.get('end_time', '')}")
-                if schedule.get('location'):
-                    st.write(f"**場所**: {schedule['location']}")
-                if schedule.get('participants'):
-                    st.write(f"**参加者**: {', '.join(schedule['participants'])}")
-                if schedule.get('actions'):
-                    st.write("**アクションアイテム**:")
-                    for action in schedule['actions']:
-                        st.write(f"- {action['assignee']}: {action['task']} (期限: {action.get('deadline', '未設定')})")
+        for i, schedule in enumerate(st.session_state.schedules):
+            with st.sidebar.expander(f"📌 {schedule['title']}", expanded=False):
+                # 編集モード
+                edit_mode = st.checkbox("編集モード", key=f"edit_schedule_{i}")
+                
+                if edit_mode:
+                    # 編集フォーム
+                    new_title = st.text_input("タイトル", value=schedule["title"], key=f"edit_schedule_title_{i}")
+                    try:
+                        default_date = datetime.strptime(schedule["date"], "%Y-%m-%d").date()
+                    except:
+                        default_date = datetime.now().date()
+                    new_date = st.date_input("日付", value=default_date, key=f"edit_schedule_date_{i}")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        try:
+                            default_start = datetime.strptime(schedule.get("start_time", "09:00"), "%H:%M").time()
+                        except:
+                            default_start = datetime.strptime("09:00", "%H:%M").time()
+                        new_start = st.time_input("開始", value=default_start, key=f"edit_schedule_start_{i}")
+                    with col2:
+                        try:
+                            default_end = datetime.strptime(schedule.get("end_time", "10:00"), "%H:%M").time()
+                        except:
+                            default_end = datetime.strptime("10:00", "%H:%M").time()
+                        new_end = st.time_input("終了", value=default_end, key=f"edit_schedule_end_{i}")
+                    
+                    new_location = st.text_input("場所", value=schedule.get("location", ""), key=f"edit_schedule_location_{i}")
+                    participants_str = ", ".join(schedule.get("participants", []))
+                    new_participants_text = st.text_input("参加者", value=participants_str, key=f"edit_schedule_participants_{i}")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("保存", key=f"save_schedule_{i}"):
+                            new_participants = [p.strip() for p in new_participants_text.split(",")] if new_participants_text else []
+                            update_schedule(
+                                i,
+                                new_title,
+                                new_date.strftime("%Y-%m-%d"),
+                                new_start.strftime("%H:%M"),
+                                new_end.strftime("%H:%M"),
+                                new_location,
+                                new_participants
+                            )
+                            st.success("更新しました")
+                            st.rerun()
+                    with col2:
+                        if st.button("🗑️ 削除", key=f"delete_schedule_{i}"):
+                            delete_schedule(i)
+                else:
+                    # 表示モード
+                    st.write(f"**日時**: {schedule['date']} {schedule.get('start_time', '')} - {schedule.get('end_time', '')}")
+                    if schedule.get('location'):
+                        st.write(f"**場所**: {schedule['location']}")
+                    if schedule.get('participants'):
+                        st.write(f"**参加者**: {', '.join(schedule['participants'])}")
+                    if schedule.get('actions'):
+                        st.write("**アクションアイテム**:")
+                        for action in schedule['actions']:
+                            st.write(f"- {action['assignee']}: {action['task']} (期限: {action.get('deadline', '未設定')})")
 
 
 # ===== 新機能3: 現在時刻・日付を回答 =====
@@ -278,6 +470,25 @@ def create_room(room_name, members):
     return room_id
 
 
+def delete_room(room_id):
+    """ルームを削除"""
+    if room_id in st.session_state.rooms and room_id != "default":
+        del st.session_state.rooms[room_id]
+        if st.session_state.current_room == room_id:
+            st.session_state.current_room = "default"
+            st.session_state.message_history = st.session_state.rooms["default"]["messages"]
+        st.rerun()
+
+
+def update_room(room_id, room_name=None, members=None):
+    """ルーム情報を更新"""
+    if room_id in st.session_state.rooms:
+        if room_name is not None:
+            st.session_state.rooms[room_id]["name"] = room_name
+        if members is not None:
+            st.session_state.rooms[room_id]["members"] = members
+
+
 def display_room_management():
     """ルーム管理UIを表示"""
     st.sidebar.markdown("---")
@@ -317,8 +528,30 @@ def display_room_management():
                 st.success(f"ルーム「{new_room_name}」を作成しました")
                 st.rerun()
     
-    # 現在のルーム情報表示
+    # 現在のルーム編集・削除
     current_room_data = st.session_state.rooms[st.session_state.current_room]
+    
+    with st.sidebar.expander("✏️ 現在のルームを編集"):
+        edit_room_name = st.text_input("ルーム名", value=current_room_data["name"], key="edit_room_name")
+        edit_members = st.multiselect(
+            "メンバー",
+            st.session_state.team_members if st.session_state.team_members else [],
+            default=current_room_data["members"],
+            key="edit_room_members"
+        )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("保存", key="save_room"):
+                update_room(st.session_state.current_room, edit_room_name, edit_members)
+                st.success("更新しました")
+                st.rerun()
+        with col2:
+            if st.session_state.current_room != "default":
+                if st.button("🗑️ 削除", key="delete_room"):
+                    delete_room(st.session_state.current_room)
+    
+    # 現在のルーム情報表示
     st.sidebar.write(f"**メンバー**: {', '.join(current_room_data['members']) if current_room_data['members'] else '全員'}")
 
 
