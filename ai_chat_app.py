@@ -408,8 +408,13 @@ def display_schedule():
 
 # ===== 新機能3: 現在時刻・日付を回答 =====
 def get_current_datetime_info():
-    """現在の日時情報を返す"""
-    now = datetime.now()
+    """現在の日時情報を返す（日本時間対応）"""
+    from datetime import timezone, timedelta
+    
+    # 日本時間（UTC+9）のタイムゾーン
+    jst = timezone(timedelta(hours=9))
+    now = datetime.now(jst)
+    
     return {
         "datetime": now.strftime("%Y-%m-%d %H:%M:%S"),
         "date": now.strftime("%Y年%m月%d日"),
