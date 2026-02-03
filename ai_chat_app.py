@@ -9,6 +9,7 @@ from datetime import datetime
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
 from google.genai import types
+from pypdf import PdfReader
 
 # ===== Gemini Client（Streamlit用）=====
 gemini_client = Client(
@@ -730,6 +731,17 @@ def transcribe_audio(audio_file):
         st.error(f"文字起こしエラー: {e}")
         return None
 
+def extract_text_from_pdf(pdf_file):
+    """PDFからテキストを抽出"""
+    try:
+        reader = PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text.strip()
+    except Exception as e:
+        st.error(f"PDF読み込みエラー: {e}")
+        return None
 
 def generate_minutes(transcript):
     """文字起こしテキストから議事録を生成"""
@@ -1031,6 +1043,30 @@ def main():
                                     action.get("deadline")
                                 )
                     st.success(f"スケジュールとタスクを追加しました（{len(schedule_data['events'])}件）")
+
+                # ===== PDFから問題生成 =====
+                st.sidebar.markdown("---")
+                st.sidebar.markdown("## 📄 PDFから問題生成")
+                
+                pdf_file = st.sidebar.file_uploader(
+                    "PDFをアップロード",
+                    type=["pdf"]
+                )
+                
+                if pdf_file and st.sidebar.button("問題を作成"):
+                    with st.spinner("PDFを解析中..."):
+                        pdf_text = extract_text_from_pdf(pdf_file)
+                
+                    if pdf_text:
+                        with st.spinner("問題を生成中..."):
+                            problems = generate_similar_problems(pdf_text)
+                
+                        st.chat_message("assistant").markdown("### 📘 生成された練習問題")
+                        st.chat_message("assistant").markdown(problems)
+                
+                        st.session_state.message_history.append(
+                            ("assistant", {"type": "text", "content": problems})
+                        )
                 
                 # ダウンロードボタン
                 st.download_button(
@@ -1082,6 +1118,28 @@ def main():
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
+
+        # 画像生成リクエスト判定
+        if user_input.startswith("画像を生成"):
+            prompt = user_input.replace("画像を生成", "").strip()
+        
+            st.chat_message("user").markdown(user_input)
+        
+            with st.chat_message("assistant"):
+                with st.spinner("画像生成中..."):
+                    img_bytes = generate_image(prompt)
+                    st.image(img_bytes, use_container_width=True)
+        
+            st.session_state.message_history.append(
+                ("assistant", {
+                    "type": "image",
+                    "content": base64.b64encode(img_bytes).decode("utf-8")
+                })
+            )
+        
+            st.rerun()
+
+        
         # 時刻・日付の質問チェック
         if check_time_query(user_input):
             time_response = generate_time_response(user_input)
@@ -1124,6 +1182,19 @@ def main():
             st.session_state.message_history.append(
                 ("assistant", {"type": "text", "content": response_text})
             )
+
+            def generate_image(prompt: str):
+    """テキストから画像を生成"""
+    client = OpenAI()
+
+    result = client.images.generate(
+        model="gpt-image-1",
+        prompt=prompt,
+        size="1024x1024"
+    )
+
+    image_base64 = result.data[0].b64_json
+    return base64.b64decode(image_base64)
             
             # ルームの会話も更新
             st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
@@ -1133,3 +1204,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
