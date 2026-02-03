@@ -743,6 +743,40 @@ def extract_text_from_pdf(pdf_file):
         st.error(f"PDF読み込みエラー: {e}")
         return None
 
+def generate_similar_problems(pdf_text):
+    """PDF内容から同種の問題を生成"""
+    try:
+        client = OpenAI()
+
+        prompt = f"""
+以下は教材・資料の内容です。
+この内容をもとに、理解度を確認するための
+「同種の問題（練習問題）」を5問作成してください。
+
+【条件】
+- 問題文のみ（解答は不要）
+- 難易度は元の内容と同程度
+- 箇条書きで出力
+
+【資料内容】
+{pdf_text[:8000]}
+"""
+
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "あなたは教材作成の専門家です。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.4
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        st.error(f"問題生成エラー: {e}")
+        return None
+
 def generate_minutes(transcript):
     """文字起こしテキストから議事録を生成"""
     try:
@@ -1204,4 +1238,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
