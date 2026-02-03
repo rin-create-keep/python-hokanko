@@ -1131,7 +1131,7 @@ def main():
                         st.image(
                             BytesIO(image_bytes),
                             caption="アップロードされた画像",
-                            use_container_width=True
+                            use_column_width=True
                         )
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
@@ -1154,14 +1154,7 @@ def main():
     uploaded_image_bytes = None
     
     if uploaded_image:
-        try:
-            uploaded_image_bytes = uploaded_image.read()
-    
-            if uploaded_image_bytes:
-                st.image(uploaded_image_bytes, use_container_width=True)
-    
-        except Exception as e:
-            st.warning(f"画像表示エラー: {e}")
+        uploaded_image_bytes = uploaded_image.read()
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -1170,12 +1163,11 @@ def main():
         if user_input.startswith("画像を生成"):
             prompt = user_input.replace("画像を生成", "").strip()
         
-            st.chat_message("user").markdown(user_input)
-        
-            with st.chat_message("assistant"):
-                with st.spinner("画像生成中..."):
-                    img_bytes = generate_image(prompt)
-                    st.image(img_bytes, use_container_width=True)
+            with st.chat_message("user"):
+                st.markdown(user_input)
+            
+                if uploaded_image_bytes:
+                    st.image(uploaded_image_bytes, use_column_width=True)
         
             st.session_state.message_history.append(
                 ("assistant", {
@@ -1239,6 +1231,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
