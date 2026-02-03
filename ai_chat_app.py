@@ -865,11 +865,10 @@ def get_llm_response(user_input: str, image_file=None):
         content = [{"type": "text", "text": user_input}]
     
         if image_file:
-            img_b64 = image_to_base64(image_file)
             content.append({
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/png;base64,{img_b64}"
+                    "url": f"data:image/png;base64,{image_to_base64(image_file)}"
                 }
             })
     
@@ -945,9 +944,7 @@ def get_llm_response(user_input: str, image_file=None):
             yield f"⚠️ Geminiエラー: {e}"
 
 
-def image_to_base64(uploaded_file):
-    image_bytes = uploaded_file.read()
-    uploaded_file.seek(0)
+def image_to_base64(image_bytes: bytes):
     return base64.b64encode(image_bytes).decode("utf-8")
 
 def generate_image(prompt: str):
@@ -1159,6 +1156,17 @@ def main():
         type=["png", "jpg", "jpeg"]
     )
     
+    uploaded_image_bytes = None
+    
+    if uploaded_image:
+        uploaded_image_bytes = uploaded_image.getvalue()
+    
+        st.image(
+            uploaded_image_bytes,
+            caption="アップロード済み画像",
+            use_container_width=True
+        )
+    
     # アップロードされた画像をプレビュー表示
     if uploaded_image:
         st.image(uploaded_image, caption="アップロード済み画像", use_container_width=True)
@@ -1214,7 +1222,7 @@ def main():
         
             # 画像があれば保存
             if uploaded_image:
-                img_b64 = image_to_base64(uploaded_image)
+                img_b64 = image_to_base64(uploaded_image_bytes)
                 st.session_state.message_history.append(
                     ("user", {"type": "image", "content": img_b64})
                 )
@@ -1222,7 +1230,7 @@ def main():
             with st.chat_message("assistant"):
                 response_placeholder = st.empty()
                 response_text = ""
-                for token in get_llm_response(user_input, uploaded_image):
+                for token in get_llm_response(user_input, uploaded_image_bytes):
                     response_text += token
                     response_placeholder.markdown(response_text)
         
@@ -1239,6 +1247,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
