@@ -7,5 +7,7 @@ openai
 anthropic
 google-genai
 python-dotenv
+pypdf
+
 
 
