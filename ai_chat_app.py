@@ -950,6 +950,19 @@ def image_to_base64(uploaded_file):
     uploaded_file.seek(0)
     return base64.b64encode(image_bytes).decode("utf-8")
 
+def generate_image(prompt: str):
+    """テキストから画像を生成"""
+    client = OpenAI()
+            
+    result = client.images.generate(
+        model="gpt-image-1",
+        prompt=prompt,
+        size="1024x1024"
+    )
+            
+    image_base64 = result.data[0].b64_json
+    return base64.b64decode(image_base64)
+
 def calc_and_display_costs():
     output_count = 0
     input_count = 0
@@ -1217,18 +1230,6 @@ def main():
                 ("assistant", {"type": "text", "content": response_text})
             )
 
-            def generate_image(prompt: str):
-                """テキストから画像を生成"""
-                client = OpenAI()
-            
-                result = client.images.generate(
-                    model="gpt-image-1",
-                    prompt=prompt,
-                    size="1024x1024"
-                )
-            
-                image_base64 = result.data[0].b64_json
-                return base64.b64decode(image_base64)
             
             # ルームの会話も更新
             st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
@@ -1238,6 +1239,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
