@@ -1154,13 +1154,14 @@ def main():
     uploaded_image_bytes = None
     
     if uploaded_image:
-        uploaded_image_bytes = uploaded_image.getvalue()
+        try:
+            uploaded_image_bytes = uploaded_image.read()
     
-        st.image(
-            uploaded_image_bytes,
-            caption="アップロード済み画像",
-            use_container_width=True
-        )
+            if uploaded_image_bytes:
+                st.image(uploaded_image_bytes, use_container_width=True)
+    
+        except Exception as e:
+            st.warning(f"画像表示エラー: {e}")
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -1212,7 +1213,7 @@ def main():
             )
         
             # 画像があれば保存
-            if uploaded_image:
+            if uploaded_image_bytes:
                 img_b64 = image_to_base64(uploaded_image_bytes)
                 st.session_state.message_history.append(
                     ("user", {"type": "image", "content": img_b64})
@@ -1238,6 +1239,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
