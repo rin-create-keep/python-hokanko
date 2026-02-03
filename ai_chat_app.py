@@ -917,17 +917,12 @@ def get_llm_response(user_input: str, image_file=None):
         
         # 画像がある場合
         if image_file:
-            image_bytes = image_file.read()
-            image_file.seek(0)
-        
             contents.append({
                 "inline_data": {
-                    "mime_type": image_file.type,
-                    "data": image_bytes
+                    "mime_type": "image/png",
+                    "data": image_file
                 }
             })
-
-
     
         try:
             response = client.models.generate_content_stream(
@@ -1166,10 +1161,6 @@ def main():
             caption="アップロード済み画像",
             use_container_width=True
         )
-    
-    # アップロードされた画像をプレビュー表示
-    if uploaded_image:
-        st.image(uploaded_image, caption="アップロード済み画像", use_container_width=True)
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -1247,6 +1238,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
