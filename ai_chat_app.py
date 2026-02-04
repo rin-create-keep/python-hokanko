@@ -1089,19 +1089,21 @@ def main():
                 
                 pdf_file = st.sidebar.file_uploader(
                     "PDFをアップロード",
-                    type=["pdf"]
+                    type=["pdf"],
+                    key="pdf_problem"
                 )
                 
-                if pdf_file and st.sidebar.button("問題を作成"):
-                    with st.spinner("PDFを解析中..."):
+                if pdf_file and st.sidebar.button("問題を作成", key="create_problem"):
+                    with st.spinner("PDF解析中..."):
                         pdf_text = extract_text_from_pdf(pdf_file)
                 
                     if pdf_text:
-                        with st.spinner("問題を生成中..."):
+                        with st.spinner("問題生成中..."):
                             problems = generate_similar_problems(pdf_text)
                 
-                        st.chat_message("assistant").markdown("### 📘 生成された練習問題")
-                        st.chat_message("assistant").markdown(problems)
+                        with st.chat_message("assistant"):
+                            st.markdown("### 📘 生成された練習問題")
+                            st.markdown(problems)
                 
                         st.session_state.message_history.append(
                             ("assistant", {"type": "text", "content": problems})
@@ -1165,9 +1167,11 @@ def main():
         
             with st.chat_message("user"):
                 st.markdown(user_input)
-            
-                if uploaded_image_bytes:
-                    st.image(uploaded_image_bytes, use_column_width=True)
+        
+            with st.chat_message("assistant"):
+                with st.spinner("画像生成中..."):
+                    img_bytes = generate_image(prompt)
+                    st.image(img_bytes, use_column_width=True)
         
             st.session_state.message_history.append(
                 ("assistant", {
@@ -1177,7 +1181,6 @@ def main():
             )
         
             st.rerun()
-
         
         # 時刻・日付の質問チェック
         if check_time_query(user_input):
@@ -1231,6 +1234,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
