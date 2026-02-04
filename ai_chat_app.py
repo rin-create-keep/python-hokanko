@@ -1025,9 +1025,38 @@ def display_main_chat():
                 elif message["type"] == "minutes":
                     st.markdown("### 📝 議事録")
                     st.markdown(message["content"])
-                    
-def display_education_features():
 
+def display_sidebar_tools():
+
+    # ===== 🎨 画像生成 =====
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 🎨 画像生成")
+
+    sidebar_image_prompt = st.sidebar.text_input(
+        "生成したい画像の内容",
+        key="sidebar_image_prompt"
+    )
+
+    if st.sidebar.button("画像を生成", key="sidebar_image_generate"):
+
+        if sidebar_image_prompt:
+
+            with st.chat_message("assistant"):
+                with st.spinner("画像生成中..."):
+                    img_bytes = generate_image(sidebar_image_prompt)
+                    st.image(img_bytes, use_column_width=True)
+
+            st.session_state.message_history.append(
+                ("assistant", {
+                    "type": "image",
+                    "content": base64.b64encode(img_bytes).decode("utf-8")
+                })
+            )
+
+            st.rerun()
+
+
+    # ===== 📄 教材AI =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📄 教材AI")
 
@@ -1054,24 +1083,75 @@ def display_education_features():
                 ("assistant", {"type": "text", "content": problems})
             )
 
-    # 新機能の初期化
-    init_task_assignment()
-    init_rooms()
-    if "schedules" not in st.session_state:
-        st.session_state.schedules = []
 
-    # 🔽 修正②：一度だけURLロード
-    if "loaded_from_url" not in st.session_state:
-        st.session_state.loaded_from_url = True
-        load_conversation_from_url()
+    # ===== 🔗 共有URL =====
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 🔗 会話の共有")
 
-    init_messages()
-    select_model()
+    if st.sidebar.button("共有URLを生成"):
+        encoded = create_share_url()
+        if encoded:
+            st.query_params["chat"] = [encoded]
+            st.sidebar.success("URLを生成しました！")
 
-    # 新機能UI表示
-    display_room_management()
-    display_task_management()
-    display_schedule()
+
+    # ===== 🎙️ 音声議事録 =====
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 🎙️ 音声議事録")
+
+    audio_file = st.sidebar.file_uploader(
+        "音声ファイルをアップロード",
+        type=["mp3","mp4","mpeg","mpga","m4a","wav","webm"],
+        key="audio_minutes"
+    )
+
+    if audio_file and st.sidebar.button("議事録を作成", key="create_minutes"):
+
+        with st.spinner("文字起こし中..."):
+            transcript = transcribe_audio(audio_file)
+
+        if transcript:
+
+            with st.spinner("議事録生成中..."):
+                minutes = generate_minutes(transcript)
+
+            if minutes:
+
+                with st.chat_message("assistant"):
+                    st.markdown("### 📝 議事録")
+                    st.markdown(minutes)
+
+                st.session_state.message_history.append(
+                    ("assistant", {"type": "minutes", "content": minutes})
+                )
+                    
+display_sidebar_tools()
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📄 教材AI")
+
+    pdf_file = st.sidebar.file_uploader(
+        "教材PDFをアップロード",
+        type=["pdf"],
+        key="edu_pdf"
+    )
+
+    if pdf_file and st.sidebar.button("問題生成", key="edu_btn"):
+
+        with st.spinner("解析中..."):
+            pdf_text = extract_text_from_pdf(pdf_file)
+
+        if pdf_text:
+
+            problems = generate_similar_problems(pdf_text)
+
+            with st.chat_message("assistant"):
+                st.markdown("### 📘 練習問題")
+                st.markdown(problems)
+
+            st.session_state.message_history.append(
+                ("assistant", {"type": "text", "content": problems})
+            )
 
     # ===== 🎨 画像生成（サイドバー） =====
     st.sidebar.markdown("---")
@@ -1359,6 +1439,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
