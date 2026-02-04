@@ -1243,15 +1243,6 @@ def main():
         # 画像を自動的にチャット画面上に表示
         with st.chat_message("user"):
             st.image(uploaded_image_bytes, caption="アップロードされた画像", use_column_width=True)
-    else:
-        # 画像が削除された場合、セッションステートもクリア
-        st.session_state.current_uploaded_image = None
-        st.session_state.current_uploaded_image = uploaded_image_bytes
-        
-        # 画像を自動的にチャット画面上に表示
-        with st.chat_message("user"):
-            st.image(uploaded_image_bytes, caption="アップロードされた画像", use_column_width=True)
-    
     # 画像が削除された場合（uploaded_imageがNoneになった時）
     elif st.session_state.current_uploaded_image is not None:
         # 画像の状態をクリア
