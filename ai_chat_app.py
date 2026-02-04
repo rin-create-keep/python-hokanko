@@ -981,24 +981,24 @@ def calc_and_display_costs():
     st.sidebar.markdown(f"- Input cost: ${input_cost:.5f}")
     st.sidebar.markdown(f"- Output cost: ${output_cost:.5f}")
 
-
 def display_chat_history_sidebar():
-    """サイドバーにチャット履歴を表示"""
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📚 チャット履歴")
-    
-    if "chat_histories" not in st.session_state or len(st.session_state.chat_histories) == 0:
-        st.sidebar.info("まだ保存された会話はありません")
+
+    if "chat_histories" not in st.session_state:
         return
-    
+
     for i, chat in enumerate(st.session_state.chat_histories):
         col1, col2 = st.sidebar.columns([3, 1])
+
         with col1:
             if st.button(f"📝 {chat['title']}", key=f"load_{i}"):
                 load_chat_history(i)
+
         with col2:
             if st.button("🗑️", key=f"delete_{i}"):
                 delete_chat_history(i)
+
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
     # 新機能の初期化
@@ -1019,9 +1019,6 @@ def display_chat_history_sidebar():
     display_room_management()
     display_task_management()
     display_schedule()
-    
-    # チャット履歴表示
-    display_chat_history_sidebar()
 
     # ===== 🎨 画像生成（サイドバー） =====
     st.sidebar.markdown("---")
@@ -1275,8 +1272,35 @@ def display_chat_history_sidebar():
 
     calc_and_display_costs()
 
+def main():
+    # ===== 基本設定 =====
+    init_page()
+    init_task_assignment()
+    init_rooms()
+
+    if "schedules" not in st.session_state:
+        st.session_state.schedules = []
+
+    # URL共有読み込み
+    if "loaded_from_url" not in st.session_state:
+        st.session_state.loaded_from_url = True
+        load_conversation_from_url()
+
+    init_messages()
+    select_model()
+
+    # ===== サイドバー =====
+    display_room_management()
+    display_task_management()
+    display_schedule()
+    display_chat_history_sidebar()
+
+    calc_and_display_costs()
+
 if __name__ == '__main__':
     main()
+
+
 
 
 
