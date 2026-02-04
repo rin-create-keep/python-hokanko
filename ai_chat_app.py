@@ -5,7 +5,7 @@ import anthropic
 from google.genai import Client
 import json   
 import base64
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode, parse_qs
 from io import BytesIO
 from google.genai import types
@@ -410,8 +410,6 @@ def display_schedule():
 # ===== 新機能3: 現在時刻・日付を回答 =====
 def get_current_datetime_info():
     """現在の日時情報を返す（日本時間対応）"""
-    from datetime import timezone, timedelta
-    
     # 日本時間（UTC+9）のタイムゾーン
     jst = timezone(timedelta(hours=9))
     now = datetime.now(jst)
@@ -576,8 +574,7 @@ def save_chat_history():
             content = msg.get("content", "").strip()
             if content:
                 title = content[:30] + ("..." if len(content) > 30 else "")
-            break
-
+                break
     
     # 保存
     chat_data = {
@@ -624,7 +621,7 @@ def encode_conversation(message_history):
 def decode_conversation(encoded_str):
     """Base64エンコードされた会話履歴をデコード"""
     try:
-        # 🔽 修正①：Base64 パディングを復元
+        # 修正①：Base64 パディングを復元
         padding = '=' * (-len(encoded_str) % 4)
         encoded_str += padding
 
@@ -634,6 +631,7 @@ def decode_conversation(encoded_str):
         st.error(f"デコードエラー: {e}")
         return None
         
+
 MAX_SHARE_CHARS = 1500
 
 def compress_messages_for_share(messages):
@@ -662,6 +660,7 @@ def compress_messages_for_share(messages):
 
     return compressed
 
+
 def create_share_url():
     if "message_history" not in st.session_state:
         return None
@@ -679,7 +678,7 @@ def create_share_url():
 
     messages = system + others
 
-    # 🔽 ここが肝
+    # 圧縮
     messages = compress_messages_for_share(messages)
 
     encoded = encode_conversation(messages)
@@ -692,7 +691,6 @@ def create_share_url():
         return None
 
     return encoded
-
 
 
 def load_conversation_from_url():
@@ -731,6 +729,7 @@ def transcribe_audio(audio_file):
         st.error(f"文字起こしエラー: {e}")
         return None
 
+
 def extract_text_from_pdf(pdf_file):
     """PDFからテキストを抽出"""
     try:
@@ -742,6 +741,7 @@ def extract_text_from_pdf(pdf_file):
     except Exception as e:
         st.error(f"PDF読み込みエラー: {e}")
         return None
+
 
 def generate_similar_problems(pdf_text):
     """PDF内容から同種の問題を生成"""
@@ -776,6 +776,7 @@ def generate_similar_problems(pdf_text):
     except Exception as e:
         st.error(f"問題生成エラー: {e}")
         return None
+
 
 def generate_minutes(transcript):
     """文字起こしテキストから議事録を生成"""
@@ -858,7 +859,7 @@ def get_llm_response(user_input: str, image_file=None):
     
         use_model = model
     
-        # 🔽 画像があるのに GPT-3.5 の場合は自動で GPT-4o に切替
+        # 画像があるのに GPT-3.5 の場合は自動で GPT-4o に切替
         if image_file and model == "gpt-3.5-turbo":
             use_model = "gpt-4o"
     
@@ -882,10 +883,9 @@ def get_llm_response(user_input: str, image_file=None):
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
-
     # ===== Claude（テキストのみ）=====
     elif model.startswith("claude"):
-        # 🔽 画像がアップロードされている場合
+        # 画像がアップロードされている場合
         if image_file:
             yield "申し訳ありません。このモデルでは画像を読み込むことができません。テキストでご質問ください。"
             return
@@ -929,7 +929,6 @@ def get_llm_response(user_input: str, image_file=None):
                 model="models/gemini-flash-latest",
                 contents=contents
             )
-
     
             for chunk in response:
                 if chunk.text:
@@ -941,6 +940,7 @@ def get_llm_response(user_input: str, image_file=None):
 
 def image_to_base64(image_bytes: bytes):
     return base64.b64encode(image_bytes).decode("utf-8")
+
 
 def generate_image(prompt: str):
     """テキストから画像を生成"""
@@ -955,11 +955,16 @@ def generate_image(prompt: str):
     image_base64 = result.data[0].b64_json
     return base64.b64decode(image_base64)
 
+
 def calc_and_display_costs():
     output_count = 0
     input_count = 0
     for role, message in st.session_state.message_history:
-        token_count = get_message_counts(message)
+        if isinstance(message, dict):
+            token_count = get_message_counts(message.get("content", ""))
+        else:
+            token_count = get_message_counts(str(message))
+            
         if role == "assistant":
             output_count += token_count
         else:
@@ -981,6 +986,7 @@ def calc_and_display_costs():
     st.sidebar.markdown(f"- Input cost: ${input_cost:.5f}")
     st.sidebar.markdown(f"- Output cost: ${output_cost:.5f}")
 
+
 def display_chat_history_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📚 チャット履歴")
@@ -1001,159 +1007,31 @@ def display_chat_history_sidebar():
 
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
-def display_main_chat():
 
-    # ===== チャット履歴表示 =====
-    for role, message in st.session_state.get("message_history", []):
-        if role == "system":
-            continue
+def main():
+    # ===== 基本設定 =====
+    init_page()
+    init_task_assignment()
+    init_rooms()
 
-        with st.chat_message(role):
+    if "schedules" not in st.session_state:
+        st.session_state.schedules = []
 
-            if isinstance(message, dict):
+    # URL共有読み込み
+    if "loaded_from_url" not in st.session_state:
+        st.session_state.loaded_from_url = True
+        load_conversation_from_url()
 
-                if message["type"] == "text":
-                    st.markdown(message["content"])
+    init_messages()
+    select_model()
 
-                elif message["type"] == "image":
-                    try:
-                        image_bytes = base64.b64decode(message["content"])
-                        st.image(BytesIO(image_bytes), use_column_width=True)
-                    except:
-                        st.warning("画像表示エラー")
+    # ===== サイドバー機能 =====
+    display_room_management()
+    display_task_management()
+    display_schedule()
+    display_chat_history_sidebar()
 
-                elif message["type"] == "minutes":
-                    st.markdown("### 📝 議事録")
-                    st.markdown(message["content"])
-
-def display_sidebar_tools():
-
-    # ===== 🎨 画像生成 =====
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 🎨 画像生成")
-
-    sidebar_image_prompt = st.sidebar.text_input(
-        "生成したい画像の内容",
-        key="sidebar_image_prompt"
-    )
-
-    if st.sidebar.button("画像を生成", key="sidebar_image_generate"):
-
-        if sidebar_image_prompt:
-
-            with st.chat_message("assistant"):
-                with st.spinner("画像生成中..."):
-                    img_bytes = generate_image(sidebar_image_prompt)
-                    st.image(img_bytes, use_column_width=True)
-
-            st.session_state.message_history.append(
-                ("assistant", {
-                    "type": "image",
-                    "content": base64.b64encode(img_bytes).decode("utf-8")
-                })
-            )
-
-            st.rerun()
-
-
-    # ===== 📄 教材AI =====
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 📄 教材AI")
-
-    pdf_file = st.sidebar.file_uploader(
-        "教材PDFをアップロード",
-        type=["pdf"],
-        key="edu_pdf"
-    )
-
-    if pdf_file and st.sidebar.button("問題生成", key="edu_btn"):
-
-        with st.spinner("解析中..."):
-            pdf_text = extract_text_from_pdf(pdf_file)
-
-        if pdf_text:
-
-            problems = generate_similar_problems(pdf_text)
-
-            with st.chat_message("assistant"):
-                st.markdown("### 📘 練習問題")
-                st.markdown(problems)
-
-            st.session_state.message_history.append(
-                ("assistant", {"type": "text", "content": problems})
-            )
-
-
-    # ===== 🔗 共有URL =====
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 🔗 会話の共有")
-
-    if st.sidebar.button("共有URLを生成"):
-        encoded = create_share_url()
-        if encoded:
-            st.query_params["chat"] = [encoded]
-            st.sidebar.success("URLを生成しました！")
-
-
-    # ===== 🎙️ 音声議事録 =====
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 🎙️ 音声議事録")
-
-    audio_file = st.sidebar.file_uploader(
-        "音声ファイルをアップロード",
-        type=["mp3","mp4","mpeg","mpga","m4a","wav","webm"],
-        key="audio_minutes"
-    )
-
-    if audio_file and st.sidebar.button("議事録を作成", key="create_minutes"):
-
-        with st.spinner("文字起こし中..."):
-            transcript = transcribe_audio(audio_file)
-
-        if transcript:
-
-            with st.spinner("議事録生成中..."):
-                minutes = generate_minutes(transcript)
-
-            if minutes:
-
-                with st.chat_message("assistant"):
-                    st.markdown("### 📝 議事録")
-                    st.markdown(minutes)
-
-                st.session_state.message_history.append(
-                    ("assistant", {"type": "minutes", "content": minutes})
-                )
-                    
-display_sidebar_tools()
-
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 📄 教材AI")
-
-    pdf_file = st.sidebar.file_uploader(
-        "教材PDFをアップロード",
-        type=["pdf"],
-        key="edu_pdf"
-    )
-
-    if pdf_file and st.sidebar.button("問題生成", key="edu_btn"):
-
-        with st.spinner("解析中..."):
-            pdf_text = extract_text_from_pdf(pdf_file)
-
-        if pdf_text:
-
-            problems = generate_similar_problems(pdf_text)
-
-            with st.chat_message("assistant"):
-                st.markdown("### 📘 練習問題")
-                st.markdown(problems)
-
-            st.session_state.message_history.append(
-                ("assistant", {"type": "text", "content": problems})
-            )
-
-    # ===== 🎨 画像生成（サイドバー） =====
+    # ===== 画像生成（サイドバー） =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🎨 画像生成")
     
@@ -1163,9 +1041,7 @@ display_sidebar_tools()
     )
     
     if st.sidebar.button("画像を生成", key="sidebar_image_generate"):
-    
         if sidebar_image_prompt:
-    
             with st.chat_message("assistant"):
                 with st.spinner("画像生成中..."):
                     img_bytes = generate_image(sidebar_image_prompt)
@@ -1178,7 +1054,6 @@ display_sidebar_tools()
                     "content": base64.b64encode(img_bytes).decode("utf-8")
                 })
             )
-    
             st.rerun()
 
     # ===== PDFから問題生成 =====
@@ -1205,8 +1080,8 @@ display_sidebar_tools()
             st.session_state.message_history.append(
                 ("assistant", {"type": "text", "content": problems})
             )
-    
-    # サイドバーに共有機能を追加
+
+    # ===== 会話の共有 =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🔗 会話の共有")
     if st.sidebar.button("共有URLを生成"):
@@ -1216,8 +1091,7 @@ display_sidebar_tools()
             st.sidebar.success("URLを生成しました！ブラウザのURLをコピーしてください")
             st.sidebar.caption("※ 共有URLには要約された会話のみが含まれます")
 
-    
-    # 音声議事録機能
+    # ===== 音声議事録機能 =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🎙️ 音声議事録")
     audio_file = st.sidebar.file_uploader(
@@ -1270,7 +1144,7 @@ display_sidebar_tools()
                     mime="text/plain"
                 )
 
-    # チャット履歴を表示
+    # ===== チャット履歴を表示 =====
     for role, message in st.session_state.get("message_history", []):
         if role == "system":
             continue
@@ -1299,7 +1173,6 @@ display_sidebar_tools()
                 # message が str のとき（旧形式対策）
                 st.markdown(message)
 
-
     # ===== 画像アップロード =====
     uploaded_image = st.file_uploader(
         "画像をアップロード（質問と一緒に送れます）",
@@ -1311,25 +1184,25 @@ display_sidebar_tools()
     if uploaded_image:
         uploaded_image_bytes = uploaded_image.getvalue()
     
-        # ⭐ すぐチャットに表示
+        # すぐチャットに表示
         img_b64 = image_to_base64(uploaded_image_bytes)
     
         with st.chat_message("user"):
             st.image(uploaded_image_bytes, use_column_width=True)
     
-        # ⭐ 履歴保存
+        # 履歴保存
         st.session_state.message_history.append(
             ("user", {"type": "image", "content": img_b64})
         )
 
-    # ユーザー入力
+    # ===== ユーザー入力 =====
     if user_input := st.chat_input("聞きたいことを入力してね！"):
 
         # 画像生成リクエスト判定
         if user_input.startswith("画像を生成"):
             prompt = user_input.replace("画像を生成", "").strip()
         
-            # ★ user履歴保存
+            # user履歴保存
             st.session_state.message_history.append(
                 ("user", {"type": "text", "content": user_input})
             )
@@ -1352,7 +1225,7 @@ display_sidebar_tools()
             st.rerun()
         
         # 時刻・日付の質問チェック
-        if check_time_query(user_input):
+        elif check_time_query(user_input):
             time_response = generate_time_response(user_input)
             st.chat_message("user").markdown(user_input)
             st.chat_message("assistant").markdown(time_response)
@@ -1397,60 +1270,12 @@ display_sidebar_tools()
             st.session_state.message_history.append(
                 ("assistant", {"type": "text", "content": response_text})
             )
-
             
             # ルームの会話も更新
             st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
 
-
     calc_and_display_costs()
 
-def main():
-
-    # ===== 基本設定 =====
-    init_page()
-    init_task_assignment()
-    init_rooms()
-
-    if "schedules" not in st.session_state:
-        st.session_state.schedules = []
-
-    # URL共有読み込み
-    if "loaded_from_url" not in st.session_state:
-        st.session_state.loaded_from_url = True
-        load_conversation_from_url()
-
-    init_messages()
-    select_model()
-
-    # ===== サイドバー =====
-    display_room_management()
-    display_task_management()
-    display_schedule()
-    display_chat_history_sidebar()
-
-    # ===== ① ChatGPT UI（ここ） =====
-    display_main_chat()
-
-    # ===== ③ 教材AI（ここ） =====
-    display_education_features()
-
-    calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
