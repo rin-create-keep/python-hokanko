@@ -6,7 +6,7 @@ from google.genai import Client
 import json   
 import base64
 from datetime import datetime, timezone, timedelta
-from urllib.parse import urlencode, parse_qs
+from urllib.parse import urlencode, parse_qs, quote
 from io import BytesIO
 from google.genai import types
 from pypdf import PdfReader
@@ -294,6 +294,50 @@ def update_schedule(index, title=None, date=None, start_time=None, end_time=None
             st.session_state.schedules[index]["participants"] = participants
 
 
+def create_google_calendar_url(schedule):
+    """Googleカレンダーに追加するためのURLを生成"""
+    try:
+        # 日時の組み立て
+        date_str = schedule['date']
+        start_time_str = schedule.get('start_time', '09:00')
+        end_time_str = schedule.get('end_time', '10:00')
+        
+        # datetimeオブジェクトの作成
+        start_dt = datetime.strptime(f"{date_str} {start_time_str}", "%Y-%m-%d %H:%M")
+        end_dt = datetime.strptime(f"{date_str} {end_time_str}", "%Y-%m-%d %H:%M")
+        
+        # Googleカレンダー用のフォーマット（YYYYMMDDTHHmmss形式）
+        start_formatted = start_dt.strftime("%Y%m%dT%H%M%S")
+        end_formatted = end_dt.strftime("%Y%m%dT%H%M%S")
+        
+        # 説明文の組み立て
+        details = []
+        if schedule.get('participants'):
+            details.append(f"参加者: {', '.join(schedule['participants'])}")
+        if schedule.get('actions'):
+            details.append("\\n\\nアクションアイテム:")
+            for action in schedule['actions']:
+                details.append(f"- {action['assignee']}: {action['task']}")
+        
+        # URLパラメータの組み立て
+        params = {
+            'action': 'TEMPLATE',
+            'text': schedule['title'],
+            'dates': f"{start_formatted}/{end_formatted}",
+            'details': '\\n'.join(details) if details else '',
+            'location': schedule.get('location', ''),
+        }
+        
+        # URLエンコード
+        query_string = urlencode(params, quote_via=quote)
+        url = f"https://calendar.google.com/calendar/render?{query_string}"
+        
+        return url
+    except Exception as e:
+        st.error(f"URL生成エラー: {e}")
+        return None
+
+
 def display_schedule():
     """スケジュールを表示"""
     if "schedules" not in st.session_state:
@@ -405,6 +449,11 @@ def display_schedule():
                         st.write("**アクションアイテム**:")
                         for action in schedule['actions']:
                             st.write(f"- {action['assignee']}: {action['task']} (期限: {action.get('deadline', '未設定')})")
+                    
+                    # Googleカレンダー追加ボタン
+                    google_url = create_google_calendar_url(schedule)
+                    if google_url:
+                        st.markdown(f"[📅 Googleカレンダーに追加]({google_url})", unsafe_allow_html=False)
 
 
 # ===== 新機能3: 現在時刻・日付を回答 =====
@@ -1176,24 +1225,14 @@ def main():
     # ===== 画像アップロード =====
     uploaded_image = st.file_uploader(
         "画像をアップロード（質問と一緒に送れます）",
-        type=["png", "jpg", "jpeg"]
+        type=["png", "jpg", "jpeg"],
+        key="image_uploader"
     )
     
     uploaded_image_bytes = None
     
     if uploaded_image:
         uploaded_image_bytes = uploaded_image.getvalue()
-    
-        # すぐチャットに表示
-        img_b64 = image_to_base64(uploaded_image_bytes)
-    
-        with st.chat_message("user"):
-            st.image(uploaded_image_bytes, use_column_width=True)
-    
-        # 履歴保存
-        st.session_state.message_history.append(
-            ("user", {"type": "image", "content": img_b64})
-        )
 
     # ===== ユーザー入力 =====
     if user_input := st.chat_input("聞きたいことを入力してね！"):
