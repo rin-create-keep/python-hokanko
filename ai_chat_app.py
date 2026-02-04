@@ -1001,35 +1001,6 @@ def display_chat_history_sidebar():
                 delete_chat_history(i)
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
-    # ===== PDFから問題生成 =====
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 📄 PDFから問題生成")
-    
-    pdf_file = st.sidebar.file_uploader(
-        "PDFをアップロード",
-        type=["pdf"],
-        key="pdf_problem"
-    )
-    
-    if pdf_file and st.sidebar.button("問題を作成", key="create_problem"):
-        with st.spinner("PDF解析中..."):
-            pdf_text = extract_text_from_pdf(pdf_file)
-    
-        if pdf_text:
-            with st.spinner("問題生成中..."):
-                problems = generate_similar_problems(pdf_text)
-    
-            with st.chat_message("assistant"):
-                st.markdown("### 📘 生成された練習問題")
-                st.markdown(problems)
-    
-            st.session_state.message_history.append(
-                ("assistant", {"type": "text", "content": problems})
-            )
-
-def main():
-    init_page()
-
     # 新機能の初期化
     init_task_assignment()
     init_rooms()
@@ -1051,6 +1022,59 @@ def main():
     
     # チャット履歴表示
     display_chat_history_sidebar()
+
+    # ===== 🎨 画像生成（サイドバー） =====
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 🎨 画像生成")
+    
+    sidebar_image_prompt = st.sidebar.text_input(
+        "生成したい画像の内容",
+        key="sidebar_image_prompt"
+    )
+    
+    if st.sidebar.button("画像を生成", key="sidebar_image_generate"):
+    
+        if sidebar_image_prompt:
+    
+            with st.chat_message("assistant"):
+                with st.spinner("画像生成中..."):
+                    img_bytes = generate_image(sidebar_image_prompt)
+                    st.image(img_bytes, use_column_width=True)
+    
+            # 履歴保存
+            st.session_state.message_history.append(
+                ("assistant", {
+                    "type": "image",
+                    "content": base64.b64encode(img_bytes).decode("utf-8")
+                })
+            )
+    
+            st.rerun()
+
+    # ===== PDFから問題生成 =====
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📄 PDFから問題生成")
+    
+    pdf_file = st.sidebar.file_uploader(
+        "PDFをアップロード",
+        type=["pdf"],
+        key="pdf_problem"
+    )
+    
+    if pdf_file and st.sidebar.button("問題を作成", key="create_problem"):
+        with st.spinner("PDF解析中..."):
+            pdf_text = extract_text_from_pdf(pdf_file)
+    
+        if pdf_text:
+            with st.chat_message("assistant"):
+                with st.spinner("問題生成中..."):
+                    problems = generate_similar_problems(pdf_text)
+                    st.markdown("### 📘 生成された練習問題")
+                    st.markdown(problems)
+    
+            st.session_state.message_history.append(
+                ("assistant", {"type": "text", "content": problems})
+            )
     
     # サイドバーに共有機能を追加
     st.sidebar.markdown("---")
@@ -1156,6 +1180,17 @@ def main():
     
     if uploaded_image:
         uploaded_image_bytes = uploaded_image.getvalue()
+    
+        # ⭐ すぐチャットに表示
+        img_b64 = image_to_base64(uploaded_image_bytes)
+    
+        with st.chat_message("user"):
+            st.image(uploaded_image_bytes, use_column_width=True)
+    
+        # ⭐ 履歴保存
+        st.session_state.message_history.append(
+            ("user", {"type": "image", "content": img_b64})
+        )
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -1242,6 +1277,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
