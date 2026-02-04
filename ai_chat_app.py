@@ -1001,6 +1001,31 @@ def display_chat_history_sidebar():
                 delete_chat_history(i)
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
+    # ===== PDFから問題生成 =====
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📄 PDFから問題生成")
+    
+    pdf_file = st.sidebar.file_uploader(
+        "PDFをアップロード",
+        type=["pdf"],
+        key="pdf_problem"
+    )
+    
+    if pdf_file and st.sidebar.button("問題を作成", key="create_problem"):
+        with st.spinner("PDF解析中..."):
+            pdf_text = extract_text_from_pdf(pdf_file)
+    
+        if pdf_text:
+            with st.spinner("問題生成中..."):
+                problems = generate_similar_problems(pdf_text)
+    
+            with st.chat_message("assistant"):
+                st.markdown("### 📘 生成された練習問題")
+                st.markdown(problems)
+    
+            st.session_state.message_history.append(
+                ("assistant", {"type": "text", "content": problems})
+            )
 
 def main():
     init_page()
@@ -1082,32 +1107,6 @@ def main():
                                     action.get("deadline")
                                 )
                     st.success(f"スケジュールとタスクを追加しました（{len(schedule_data['events'])}件）")
-
-                # ===== PDFから問題生成 =====
-                st.sidebar.markdown("---")
-                st.sidebar.markdown("## 📄 PDFから問題生成")
-                
-                pdf_file = st.sidebar.file_uploader(
-                    "PDFをアップロード",
-                    type=["pdf"],
-                    key="pdf_problem"
-                )
-                
-                if pdf_file and st.sidebar.button("問題を作成", key="create_problem"):
-                    with st.spinner("PDF解析中..."):
-                        pdf_text = extract_text_from_pdf(pdf_file)
-                
-                    if pdf_text:
-                        with st.spinner("問題生成中..."):
-                            problems = generate_similar_problems(pdf_text)
-                
-                        with st.chat_message("assistant"):
-                            st.markdown("### 📘 生成された練習問題")
-                            st.markdown(problems)
-                
-                        st.session_state.message_history.append(
-                            ("assistant", {"type": "text", "content": problems})
-                        )
                 
                 # ダウンロードボタン
                 st.download_button(
@@ -1156,7 +1155,7 @@ def main():
     uploaded_image_bytes = None
     
     if uploaded_image:
-        uploaded_image_bytes = uploaded_image.read()
+        uploaded_image_bytes = uploaded_image.getvalue()
 
     # ユーザー入力
     if user_input := st.chat_input("聞きたいことを入力してね！"):
@@ -1164,6 +1163,11 @@ def main():
         # 画像生成リクエスト判定
         if user_input.startswith("画像を生成"):
             prompt = user_input.replace("画像を生成", "").strip()
+        
+            # ★ user履歴保存
+            st.session_state.message_history.append(
+                ("user", {"type": "text", "content": user_input})
+            )
         
             with st.chat_message("user"):
                 st.markdown(user_input)
@@ -1200,7 +1204,11 @@ def main():
             st.rerun()
         
         else:
-            st.chat_message("user").markdown(user_input)
+            with st.chat_message("user"):
+                st.markdown(user_input)
+        
+                if uploaded_image_bytes:
+                    st.image(uploaded_image_bytes, use_column_width=True)
         
             # テキストを保存
             st.session_state.message_history.append(
@@ -1234,6 +1242,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
