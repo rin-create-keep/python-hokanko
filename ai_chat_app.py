@@ -1001,6 +1001,59 @@ def display_chat_history_sidebar():
 
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
+def display_main_chat():
+
+    # ===== チャット履歴表示 =====
+    for role, message in st.session_state.get("message_history", []):
+        if role == "system":
+            continue
+
+        with st.chat_message(role):
+
+            if isinstance(message, dict):
+
+                if message["type"] == "text":
+                    st.markdown(message["content"])
+
+                elif message["type"] == "image":
+                    try:
+                        image_bytes = base64.b64decode(message["content"])
+                        st.image(BytesIO(image_bytes), use_column_width=True)
+                    except:
+                        st.warning("画像表示エラー")
+
+                elif message["type"] == "minutes":
+                    st.markdown("### 📝 議事録")
+                    st.markdown(message["content"])
+                    
+def display_education_features():
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📄 教材AI")
+
+    pdf_file = st.sidebar.file_uploader(
+        "教材PDFをアップロード",
+        type=["pdf"],
+        key="edu_pdf"
+    )
+
+    if pdf_file and st.sidebar.button("問題生成", key="edu_btn"):
+
+        with st.spinner("解析中..."):
+            pdf_text = extract_text_from_pdf(pdf_file)
+
+        if pdf_text:
+
+            problems = generate_similar_problems(pdf_text)
+
+            with st.chat_message("assistant"):
+                st.markdown("### 📘 練習問題")
+                st.markdown(problems)
+
+            st.session_state.message_history.append(
+                ("assistant", {"type": "text", "content": problems})
+            )
+
     # 新機能の初期化
     init_task_assignment()
     init_rooms()
@@ -1273,6 +1326,7 @@ def display_chat_history_sidebar():
     calc_and_display_costs()
 
 def main():
+
     # ===== 基本設定 =====
     init_page()
     init_task_assignment()
@@ -1295,10 +1349,17 @@ def main():
     display_schedule()
     display_chat_history_sidebar()
 
+    # ===== ① ChatGPT UI（ここ） =====
+    display_main_chat()
+
+    # ===== ③ 教材AI（ここ） =====
+    display_education_features()
+
     calc_and_display_costs()
 
 if __name__ == '__main__':
     main()
+
 
 
 
