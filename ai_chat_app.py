@@ -497,7 +497,7 @@ def generate_time_response(user_input):
         return f"現在は{dt_info['date']}（{dt_info['weekday_jp']}）の{dt_info['time']}です。"
 
 
-# ===== 新機能4: ルーム機能 =====
+# ===== 新機能4: ルーム機能（修正版） =====
 def init_rooms():
     """ルーム機能の初期化"""
     if "rooms" not in st.session_state:
@@ -513,12 +513,12 @@ def init_rooms():
 
 
 def create_room(room_name, members):
-    """新しいルームを作成"""
+    """新しいルームを作成（修正: 新しいメッセージ履歴で開始）"""
     room_id = f"room_{len(st.session_state.rooms)}"
     st.session_state.rooms[room_id] = {
         "name": room_name,
         "members": members,
-        "messages": [("system", "You are a helpful assistant.")]
+        "messages": [("system", "You are a helpful assistant.")]  # 新しい履歴
     }
     return room_id
 
@@ -542,8 +542,26 @@ def update_room(room_id, room_name=None, members=None):
             st.session_state.rooms[room_id]["members"] = members
 
 
+def add_member_to_room(room_id, member_name):
+    """ルームにメンバーを追加（新機能）"""
+    if room_id in st.session_state.rooms:
+        if member_name not in st.session_state.rooms[room_id]["members"]:
+            st.session_state.rooms[room_id]["members"].append(member_name)
+            return True
+    return False
+
+
+def remove_member_from_room(room_id, member_name):
+    """ルームからメンバーを削除（新機能）"""
+    if room_id in st.session_state.rooms:
+        if member_name in st.session_state.rooms[room_id]["members"]:
+            st.session_state.rooms[room_id]["members"].remove(member_name)
+            return True
+    return False
+
+
 def display_room_management():
-    """ルーム管理UIを表示"""
+    """ルーム管理UIを表示（修正版）"""
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🏠 ルーム管理")
     
@@ -586,26 +604,50 @@ def display_room_management():
     
     with st.sidebar.expander("✏️ 現在のルームを編集"):
         edit_room_name = st.text_input("ルーム名", value=current_room_data["name"], key="edit_room_name")
-        edit_members = st.multiselect(
-            "メンバー",
-            st.session_state.team_members if st.session_state.team_members else [],
-            default=current_room_data["members"],
-            key="edit_room_members"
-        )
+        
+        # メンバー追加機能（新規）
+        st.markdown("**メンバーを追加**")
+        available_members = [m for m in st.session_state.team_members if m not in current_room_data["members"]]
+        if available_members:
+            member_to_add = st.selectbox(
+                "追加するメンバー",
+                available_members,
+                key="add_member_select"
+            )
+            if st.button("➕ メンバー追加", key="add_member_to_room_btn"):
+                if add_member_to_room(st.session_state.current_room, member_to_add):
+                    st.success(f"{member_to_add}を追加しました")
+                    st.rerun()
+        else:
+            st.info("追加可能なメンバーがいません")
+        
+        # メンバー削除機能（新規）
+        st.markdown("**現在のメンバー**")
+        if current_room_data["members"]:
+            for member in current_room_data["members"]:
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"- {member}")
+                with col2:
+                    if st.button("❌", key=f"remove_member_{member}"):
+                        if remove_member_from_room(st.session_state.current_room, member):
+                            st.success(f"{member}を削除しました")
+                            st.rerun()
+        else:
+            st.write("メンバーなし")
+        
+        st.markdown("---")
         
         col1, col2 = st.columns(2)
         with col1:
             if st.button("保存", key="save_room"):
-                update_room(st.session_state.current_room, edit_room_name, edit_members)
+                update_room(st.session_state.current_room, edit_room_name)
                 st.success("更新しました")
                 st.rerun()
         with col2:
             if st.session_state.current_room != "default":
                 if st.button("🗑️ 削除", key="delete_room"):
                     delete_room(st.session_state.current_room)
-    
-    # 現在のルーム情報表示
-    st.sidebar.write(f"**メンバー**: {', '.join(current_room_data['members']) if current_room_data['members'] else '全員'}")
 
 
 def save_chat_history():
@@ -899,6 +941,58 @@ def select_model():
         st.session_state.model_name = "gemini-2.5-flash"
 
 
+def describe_image(image_bytes):
+    """画像を説明する（新機能）"""
+    try:
+        client = OpenAI()
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "この画像について詳しく説明してください。"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_to_base64(image_bytes)}"
+                            }
+                        }
+                    ]
+                }
+            ],
+        )
+        
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"画像説明エラー: {e}")
+        return None
+
+
+def check_if_asking_about_generated_image(user_input):
+    """生成した画像についての質問かどうかを判定（新機能）"""
+    keywords = ["この画像", "その画像", "今の画像", "画像について", "生成した画像", "作った画像"]
+    
+    for keyword in keywords:
+        if keyword in user_input:
+            return True
+    return False
+
+
+def get_last_generated_image():
+    """最後に生成した画像を取得（新機能）"""
+    if "message_history" not in st.session_state:
+        return None
+    
+    # 履歴を逆順に検索
+    for role, message in reversed(st.session_state.message_history):
+        if role == "assistant" and isinstance(message, dict) and message.get("type") == "image":
+            return message.get("content")
+    
+    return None
+
+
 def get_llm_response(user_input: str, image_file=None):
     model = st.session_state.model_name
 
@@ -996,11 +1090,9 @@ def generate_image(prompt: str):
     client = OpenAI()
             
     result = client.images.generate(
-        model="dall-e-3",  # 修正: dall-e-3 に変更
+        model="gpt-image-1",
         prompt=prompt,
-        size="1024x1024",
-        n=1,  # dall-e-3 では n=1 のみサポート
-        response_format="b64_json"  # 明示的に指定
+        size="1024x1024"
     )
             
     image_base64 = result.data[0].b64_json
@@ -1082,7 +1174,7 @@ def main():
     display_schedule()
     display_chat_history_sidebar()
 
-    # ===== 画像生成（サイドバー） =====
+    # ===== 画像生成（サイドバー）（修正: ダウンロードボタン追加） =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🎨 画像生成")
     
@@ -1097,6 +1189,15 @@ def main():
                 with st.spinner("画像生成中..."):
                     img_bytes = generate_image(sidebar_image_prompt)
                     st.image(img_bytes, use_column_width=True)
+                    
+                    # ダウンロードボタン追加（新機能）
+                    st.download_button(
+                        label="📥 画像をダウンロード",
+                        data=img_bytes,
+                        file_name=f"generated_image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                        mime="image/png",
+                        key="download_sidebar_image"
+                    )
     
             # 履歴保存
             st.session_state.message_history.append(
@@ -1195,7 +1296,7 @@ def main():
                     mime="text/plain"
                 )
 
-    # ===== チャット履歴を表示 =====
+    # ===== チャット履歴を表示（修正: ダウンロードボタン追加） =====
     for role, message in st.session_state.get("message_history", []):
         if role == "system":
             continue
@@ -1210,8 +1311,17 @@ def main():
                         image_bytes = base64.b64decode(message["content"])
                         st.image(
                             BytesIO(image_bytes),
-                            caption="アップロードされた画像",
+                            caption="生成された画像",
                             use_column_width=True
+                        )
+                        
+                        # ダウンロードボタン追加（新機能）
+                        st.download_button(
+                            label="📥 画像をダウンロード",
+                            data=image_bytes,
+                            file_name=f"generated_image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                            mime="image/png",
+                            key=f"download_history_image_{hash(message['content'])}"
                         )
                     except Exception:
                         st.warning("⚠️ 画像を表示できませんでした")
@@ -1271,6 +1381,15 @@ def main():
                 with st.spinner("画像生成中..."):
                     img_bytes = generate_image(prompt)
                     st.image(img_bytes, use_column_width=True)
+                    
+                    # ダウンロードボタン追加（新機能）
+                    st.download_button(
+                        label="📥 画像をダウンロード",
+                        data=img_bytes,
+                        file_name=f"generated_image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                        mime="image/png",
+                        key="download_generated_image"
+                    )
         
             st.session_state.message_history.append(
                 ("assistant", {
@@ -1297,6 +1416,36 @@ def main():
             # ルームの会話も更新
             st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
             st.rerun()
+        
+        # 生成した画像についての質問チェック（新機能）
+        elif check_if_asking_about_generated_image(user_input) and not uploaded_image_bytes:
+            last_image_b64 = get_last_generated_image()
+            
+            if last_image_b64:
+                with st.chat_message("user"):
+                    st.markdown(user_input)
+                
+                st.session_state.message_history.append(
+                    ("user", {"type": "text", "content": user_input})
+                )
+                
+                with st.chat_message("assistant"):
+                    with st.spinner("画像を分析中..."):
+                        image_bytes = base64.b64decode(last_image_b64)
+                        description = describe_image(image_bytes)
+                        
+                        if description:
+                            st.markdown(description)
+                            
+                            st.session_state.message_history.append(
+                                ("assistant", {"type": "text", "content": description})
+                            )
+                
+                # ルームの会話も更新
+                st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
+                st.rerun()
+            else:
+                st.chat_message("assistant").markdown("申し訳ありません。参照できる画像が見つかりませんでした。")
         
         else:
             with st.chat_message("user"):
