@@ -996,9 +996,11 @@ def generate_image(prompt: str):
     client = OpenAI()
             
     result = client.images.generate(
-        model="gpt-image-1",
+        model="dall-e-3",  # 修正: dall-e-3 に変更
         prompt=prompt,
-        size="1024x1024"
+        size="1024x1024",
+        n=1,  # dall-e-3 では n=1 のみサポート
+        response_format="b64_json"  # 明示的に指定
     )
             
     image_base64 = result.data[0].b64_json
