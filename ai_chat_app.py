@@ -712,7 +712,7 @@ def encode_conversation(message_history):
 def decode_conversation(encoded_str):
     """Base64エンコードされた会話履歴をデコード"""
     try:
-        # 修正①：Base64 パディングを復元
+        # 修正①:Base64 パディングを復元
         padding = '=' * (-len(encoded_str) % 4)
         encoded_str += padding
 
@@ -911,7 +911,9 @@ def init_messages():
         st.session_state.message_history = [
             ("system", "You are a helpful assistant.")
         ]
-        # ルームの会話も更新
+        # 画像もクリア
+        st.session_state.current_uploaded_image = None
+        # ルームの会話も更新（現在のルームのまま、デフォルトに戻らない）
         if "current_room" in st.session_state:
             st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
         st.rerun()
