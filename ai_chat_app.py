@@ -929,7 +929,7 @@ def select_model():
 
     model = st.sidebar.radio(
         "Choose a model",
-        ("GPT-3.5", "GPT-4", "Claude 3.5 Sonnet", "Gemini 1.5 Pro")
+        ("GPT-3.5", "GPT-4", "Claude 3.5 Sonnet", "gemini-flash-latest")
     )
     if model == "GPT-3.5":
         st.session_state.model_name = "gpt-3.5-turbo"
@@ -937,7 +937,7 @@ def select_model():
         st.session_state.model_name = "gpt-4o"
     elif model == "Claude 3.5 Sonnet":
         st.session_state.model_name = "claude-3-haiku-20240307"
-    else:
+    else:  # gemini-flash-latest
         st.session_state.model_name = "gemini-2.5-flash"
 
 
