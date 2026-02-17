@@ -55,53 +55,69 @@ def init_page():
     st.sidebar.title("Options")
 
 
-# ===== 新機能1: タスク割り振り =====
+# ===== 新機能1: タスク割り振り（修正: ルームごとに管理） =====
 def init_task_assignment():
     """タスク割り振り機能の初期化"""
-    if "tasks" not in st.session_state:
-        st.session_state.tasks = []
     if "team_members" not in st.session_state:
         st.session_state.team_members = []
     if "show_tasks" not in st.session_state:
         st.session_state.show_tasks = True
 
 
+def get_current_room_tasks():
+    """現在のルームのタスクを取得"""
+    room_id = st.session_state.get("current_room", "default")
+    if "rooms" in st.session_state and room_id in st.session_state.rooms:
+        if "tasks" not in st.session_state.rooms[room_id]:
+            st.session_state.rooms[room_id]["tasks"] = []
+        return st.session_state.rooms[room_id]["tasks"]
+    return []
+
+
 def add_task_assignment(task_name, assignee, deadline=None):
-    """タスクを追加"""
-    task = {
-        "id": len(st.session_state.tasks) + 1,
-        "name": task_name,
-        "assignee": assignee,
-        "deadline": deadline,
-        "status": "未着手",
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    st.session_state.tasks.append(task)
-    return task
+    """タスクを追加（現在のルームに）"""
+    room_id = st.session_state.get("current_room", "default")
+    if "rooms" in st.session_state and room_id in st.session_state.rooms:
+        if "tasks" not in st.session_state.rooms[room_id]:
+            st.session_state.rooms[room_id]["tasks"] = []
+        
+        task = {
+            "id": len(st.session_state.rooms[room_id]["tasks"]) + 1,
+            "name": task_name,
+            "assignee": assignee,
+            "deadline": deadline,
+            "status": "未着手",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        st.session_state.rooms[room_id]["tasks"].append(task)
+        return task
+    return None
 
 
 def delete_task(index):
-    """タスクを削除"""
-    if 0 <= index < len(st.session_state.tasks):
-        st.session_state.tasks.pop(index)
+    """タスクを削除（現在のルームから）"""
+    tasks = get_current_room_tasks()
+    if 0 <= index < len(tasks):
+        tasks.pop(index)
         st.rerun()
 
 
 def update_task(index, task_name=None, assignee=None, deadline=None, status=None):
-    """タスクを更新"""
-    if 0 <= index < len(st.session_state.tasks):
+    """タスクを更新（現在のルーム内）"""
+    tasks = get_current_room_tasks()
+    if 0 <= index < len(tasks):
         if task_name is not None:
-            st.session_state.tasks[index]["name"] = task_name
+            tasks[index]["name"] = task_name
         if assignee is not None:
-            st.session_state.tasks[index]["assignee"] = assignee
+            tasks[index]["assignee"] = assignee
         if deadline is not None:
-            st.session_state.tasks[index]["deadline"] = deadline
+            tasks[index]["deadline"] = deadline
         if status is not None:
-            st.session_state.tasks[index]["status"] = status
+            tasks[index]["status"] = status
 
 
 def display_task_management():
-    """タスク管理UIを表示"""
+    """タスク管理UIを表示（ルームごと）"""
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📋 タスク管理")
     
@@ -141,10 +157,11 @@ def display_task_management():
                 st.success(f"タスク「{task_name}」を追加しました")
                 st.rerun()
     
-    # タスク一覧表示と編集
-    if st.session_state.tasks:
+    # タスク一覧表示と編集（現在のルームのタスクのみ）
+    current_tasks = get_current_room_tasks()
+    if current_tasks:
         st.sidebar.write("### 📝 タスク一覧")
-        for i, task in enumerate(st.session_state.tasks):
+        for i, task in enumerate(current_tasks):
             with st.sidebar.expander(f"📌 {task['name']}", expanded=False):
                 # 編集モード
                 edit_mode = st.checkbox("編集モード", key=f"edit_task_{i}")
@@ -190,7 +207,7 @@ def display_task_management():
                     st.caption(f"作成日時: {task['created_at']}")
 
 
-# ===== 新機能2: 議事録からスケジュール生成 =====
+# ===== 新機能2: 議事録からスケジュール生成（修正: ルームごとに管理） =====
 def extract_schedule_from_minutes(minutes_text):
     """議事録からスケジュール情報を抽出"""
     try:
@@ -253,45 +270,63 @@ def extract_schedule_from_minutes(minutes_text):
         return None
 
 
+def get_current_room_schedules():
+    """現在のルームのスケジュールを取得"""
+    room_id = st.session_state.get("current_room", "default")
+    if "rooms" in st.session_state and room_id in st.session_state.rooms:
+        if "schedules" not in st.session_state.rooms[room_id]:
+            st.session_state.rooms[room_id]["schedules"] = []
+        return st.session_state.rooms[room_id]["schedules"]
+    return []
+
+
 def add_schedule_manually(title, date, start_time, end_time, location, participants):
-    """手動でスケジュールを追加"""
-    schedule = {
-        "id": len(st.session_state.schedules) + 1,
-        "title": title,
-        "date": date,
-        "start_time": start_time,
-        "end_time": end_time,
-        "location": location,
-        "participants": participants,
-        "actions": [],
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    st.session_state.schedules.append(schedule)
-    return schedule
+    """手動でスケジュールを追加（現在のルームに）"""
+    room_id = st.session_state.get("current_room", "default")
+    if "rooms" in st.session_state and room_id in st.session_state.rooms:
+        if "schedules" not in st.session_state.rooms[room_id]:
+            st.session_state.rooms[room_id]["schedules"] = []
+        
+        schedule = {
+            "id": len(st.session_state.rooms[room_id]["schedules"]) + 1,
+            "title": title,
+            "date": date,
+            "start_time": start_time,
+            "end_time": end_time,
+            "location": location,
+            "participants": participants,
+            "actions": [],
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        st.session_state.rooms[room_id]["schedules"].append(schedule)
+        return schedule
+    return None
 
 
 def delete_schedule(index):
-    """スケジュールを削除"""
-    if 0 <= index < len(st.session_state.schedules):
-        st.session_state.schedules.pop(index)
+    """スケジュールを削除（現在のルームから）"""
+    schedules = get_current_room_schedules()
+    if 0 <= index < len(schedules):
+        schedules.pop(index)
         st.rerun()
 
 
 def update_schedule(index, title=None, date=None, start_time=None, end_time=None, location=None, participants=None):
-    """スケジュールを更新"""
-    if 0 <= index < len(st.session_state.schedules):
+    """スケジュールを更新（現在のルーム内）"""
+    schedules = get_current_room_schedules()
+    if 0 <= index < len(schedules):
         if title is not None:
-            st.session_state.schedules[index]["title"] = title
+            schedules[index]["title"] = title
         if date is not None:
-            st.session_state.schedules[index]["date"] = date
+            schedules[index]["date"] = date
         if start_time is not None:
-            st.session_state.schedules[index]["start_time"] = start_time
+            schedules[index]["start_time"] = start_time
         if end_time is not None:
-            st.session_state.schedules[index]["end_time"] = end_time
+            schedules[index]["end_time"] = end_time
         if location is not None:
-            st.session_state.schedules[index]["location"] = location
+            schedules[index]["location"] = location
         if participants is not None:
-            st.session_state.schedules[index]["participants"] = participants
+            schedules[index]["participants"] = participants
 
 
 def create_google_calendar_url(schedule):
@@ -339,9 +374,7 @@ def create_google_calendar_url(schedule):
 
 
 def display_schedule():
-    """スケジュールを表示"""
-    if "schedules" not in st.session_state:
-        st.session_state.schedules = []
+    """スケジュールを表示（ルームごと）"""
     if "show_schedules" not in st.session_state:
         st.session_state.show_schedules = True
     
@@ -386,9 +419,10 @@ def display_schedule():
                 st.success(f"スケジュール「{new_title}」を追加しました")
                 st.rerun()
     
-    # スケジュール一覧表示と編集
-    if st.session_state.schedules:
-        for i, schedule in enumerate(st.session_state.schedules):
+    # スケジュール一覧表示と編集（現在のルームのスケジュールのみ）
+    current_schedules = get_current_room_schedules()
+    if current_schedules:
+        for i, schedule in enumerate(current_schedules):
             with st.sidebar.expander(f"📌 {schedule['title']}", expanded=False):
                 # 編集モード
                 edit_mode = st.checkbox("編集モード", key=f"edit_schedule_{i}")
@@ -505,7 +539,9 @@ def init_rooms():
             "default": {
                 "name": "デフォルトルーム",
                 "members": [],
-                "messages": [("system", "You are a helpful assistant.")]
+                "messages": [("system", "You are a helpful assistant.")],
+                "tasks": [],
+                "schedules": []
             }
         }
     if "current_room" not in st.session_state:
@@ -513,12 +549,14 @@ def init_rooms():
 
 
 def create_room(room_name, members):
-    """新しいルームを作成（修正: 新しいメッセージ履歴で開始）"""
+    """新しいルームを作成（修正: 新しいメッセージ履歴、タスク、スケジュールで開始）"""
     room_id = f"room_{len(st.session_state.rooms)}"
     st.session_state.rooms[room_id] = {
         "name": room_name,
         "members": members,
-        "messages": [("system", "You are a helpful assistant.")]  # 新しい履歴
+        "messages": [("system", "You are a helpful assistant.")],
+        "tasks": [],
+        "schedules": []
     }
     return room_id
 
@@ -1159,9 +1197,6 @@ def main():
     init_task_assignment()
     init_rooms()
 
-    if "schedules" not in st.session_state:
-        st.session_state.schedules = []
-
     # URL共有読み込み
     if "loaded_from_url" not in st.session_state:
         st.session_state.loaded_from_url = True
@@ -1176,16 +1211,18 @@ def main():
     display_schedule()
     display_chat_history_sidebar()
 
-    # ===== 画像生成（サイドバー）（修正: ダウンロードボタン追加） =====
+    # ===== 画像生成（サイドバー）（修正: ルームごとにkey管理） =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🎨 画像生成")
     
+    # ルームごとにユニークなkeyを使用
+    room_id = st.session_state.get("current_room", "default")
     sidebar_image_prompt = st.sidebar.text_input(
         "生成したい画像の内容",
-        key="sidebar_image_prompt"
+        key=f"sidebar_image_prompt_{room_id}"  # ルームごとに異なるkey
     )
     
-    if st.sidebar.button("画像を生成", key="sidebar_image_generate"):
+    if st.sidebar.button("画像を生成", key=f"sidebar_image_generate_{room_id}"):
         if sidebar_image_prompt:
             with st.chat_message("assistant"):
                 with st.spinner("画像生成中..."):
@@ -1198,7 +1235,7 @@ def main():
                         data=img_bytes,
                         file_name=f"generated_image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
                         mime="image/png",
-                        key="download_sidebar_image"
+                        key=f"download_sidebar_image_{room_id}"
                     )
     
             # 履歴保存
@@ -1210,17 +1247,17 @@ def main():
             )
             st.rerun()
 
-    # ===== PDFから問題生成 =====
+    # ===== PDFから問題生成（修正: ルームごとにkey管理） =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📄 PDFから問題生成")
     
     pdf_file = st.sidebar.file_uploader(
         "PDFをアップロード",
         type=["pdf"],
-        key="pdf_problem"
+        key=f"pdf_problem_{room_id}"  # ルームごとに異なるkey
     )
     
-    if pdf_file and st.sidebar.button("問題を作成", key="create_problem"):
+    if pdf_file and st.sidebar.button("問題を作成", key=f"create_problem_{room_id}"):
         with st.spinner("PDF解析中..."):
             pdf_text = extract_text_from_pdf(pdf_file)
     
@@ -1245,15 +1282,16 @@ def main():
             st.sidebar.success("URLを生成しました！ブラウザのURLをコピーしてください")
             st.sidebar.caption("※ 共有URLには要約された会話のみが含まれます")
 
-    # ===== 音声議事録機能 =====
+    # ===== 音声議事録機能（修正: ルームごとにkey管理） =====
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 🎙️ 音声議事録")
     audio_file = st.sidebar.file_uploader(
         "音声ファイルをアップロード",
-        type=["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"]
+        type=["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"],
+        key=f"audio_file_{room_id}"  # ルームごとに異なるkey
     )
     
-    if audio_file and st.sidebar.button("議事録を作成"):
+    if audio_file and st.sidebar.button("議事録を作成", key=f"create_minutes_{room_id}"):
         with st.spinner("文字起こし中..."):
             transcript = transcribe_audio(audio_file)
         
@@ -1274,13 +1312,14 @@ def main():
                     ("assistant", {"type": "minutes", "content": minutes})
                 )
                 
-                # スケジュールへの転記
+                # スケジュールへの転記（現在のルームに）
                 schedule_data = extract_schedule_from_minutes(minutes)
                 if schedule_data and "events" in schedule_data:
                     for event in schedule_data["events"]:
-                        st.session_state.schedules.append(event)
+                        current_schedules = get_current_room_schedules()
+                        current_schedules.append(event)
                         
-                        # アクションアイテムをタスクに追加
+                        # アクションアイテムをタスクに追加（現在のルームに）
                         if event.get("actions"):
                             for action in event["actions"]:
                                 add_task_assignment(
