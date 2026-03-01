@@ -1,6 +1,5 @@
 import os
 import streamlit as st
-import streamlit.components.v1 as components
 from openai import OpenAI
 import anthropic
 from google.genai import Client
@@ -1000,85 +999,76 @@ def display_chat_history_sidebar():
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
 
-# ===== localStorage永続化：保存すべきキー一覧 =====
+# =============================================================
+# ===== サーバーサイド永続化（セッションファイル）=====
+# ブラウザのリロード（F5）でも session_id が同じ限りデータを復元する。
+# Streamlit はブラウザリロード後も同一セッション内では同じ session_id を
+# 使い続けるため、/tmp に書き出したファイルから状態を復元できる。
+# =============================================================
 _PERSIST_KEYS = ["rooms", "current_room", "team_members", "chat_histories"]
-_LS_KEY = "mygreat_chatgpt_state"
 
 
-def _serialize_state() -> str:
-    """session_state の永続化対象データを JSON 文字列にシリアライズする。"""
+def _get_session_id() -> str | None:
+    """現在の Streamlit セッション ID を返す。取得できない場合は None。"""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        ctx = get_script_run_ctx()
+        return ctx.session_id if ctx else None
+    except Exception:
+        return None
+
+
+def _state_file(session_id: str) -> str:
+    """セッションごとの状態ファイルパスを返す。"""
+    return f"/tmp/mgchatgpt_{session_id}.json"
+
+
+def save_state(session_id: str | None = None) -> None:
+    """
+    永続化対象の session_state を JSON ファイルに書き出す。
+    毎 rerun の末尾で呼ぶことで常に最新状態を保存する。
+    """
+    if session_id is None:
+        session_id = _get_session_id()
+    if session_id is None:
+        return
+
     data = {}
     for k in _PERSIST_KEYS:
         if k in st.session_state:
             data[k] = st.session_state[k]
-    return json.dumps(data, ensure_ascii=False)
+
+    try:
+        with open(_state_file(session_id), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception:
+        pass  # 書き込み失敗は無視（機能には影響しない）
 
 
-def save_state_to_localStorage():
+def load_state(session_id: str | None = None) -> None:
     """
-    session_state の永続化対象データを localStorage に書き込む JS を注入する。
-    各 rerun の末尾で呼ぶことで常に最新状態を保存する。
+    JSON ファイルから session_state を復元する。
+    session_state に既にキーが存在する場合は上書きしない。
+    セッション開始時（loaded_from_file フラグがない場合）に1回だけ呼ぶ。
     """
-    serialized = _serialize_state()
-    # JSON 内のバッククォートをエスケープして JS テンプレートリテラルに埋め込む
-    safe = serialized.replace("\\", "\\\\").replace("`", "\\`")
-    js = f"""
-<script>
-(function() {{
-    try {{
-        localStorage.setItem("{_LS_KEY}", `{safe}`);
-    }} catch(e) {{
-        console.warn("localStorage write failed:", e);
-    }}
-}})();
-</script>
-"""
-    components.html(js, height=0)
+    if session_id is None:
+        session_id = _get_session_id()
+    if session_id is None:
+        return
 
+    path = _state_file(session_id)
+    if not os.path.exists(path):
+        return
 
-def load_state_from_localStorage():
-    """
-    localStorage からデータを読み込み、session_state に復元する JS + hidden input パターン。
-    Streamlit では JS から直接 Python 変数を書けないため、
-    st.query_params を経由する代わりに専用の hidden st.text_input を使う。
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return  # 壊れたファイルは無視
 
-    ※ この関数はセッション開始時（loaded_from_ls フラグがない場合）に1回だけ呼ぶ。
-    """
-    # Step 1: localStorage の値を hidden input に書き込む JS を注入
-    js_read = f"""
-<script>
-(function() {{
-    var val = localStorage.getItem("{_LS_KEY}");
-    if (val) {{
-        // Streamlit の hidden text_input に値をセットしてイベントを発火させる
-        var inputs = window.parent.document.querySelectorAll('input[data-testid="stTextInput"]');
-        for (var i = 0; i < inputs.length; i++) {{
-            if (inputs[i].getAttribute('aria-label') === '__ls_bridge__') {{
-                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                    window.HTMLInputElement.prototype, 'value').set;
-                nativeInputValueSetter.call(inputs[i], val);
-                inputs[i].dispatchEvent(new Event('input', {{ bubbles: true }}));
-                break;
-            }}
-        }}
-    }}
-}})();
-</script>
-"""
-    components.html(js_read, height=0)
-
-    # Step 2: bridge 用 text_input（画面上に表示しない）
-    raw = st.text_input("__ls_bridge__", key="__ls_bridge__", label_visibility="collapsed")
-
-    # Step 3: 値があれば復元
-    if raw:
-        try:
-            data = json.loads(raw)
-            for k in _PERSIST_KEYS:
-                if k in data and k not in st.session_state:
-                    st.session_state[k] = data[k]
-        except Exception:
-            pass  # 壊れたデータは無視
+    for k in _PERSIST_KEYS:
+        if k in data and k not in st.session_state:
+            st.session_state[k] = data[k]
 
 
 def main():
@@ -1086,12 +1076,15 @@ def main():
     init_task_assignment()
     init_rooms()
 
-    # ── localStorage からの復元（セッション開始時に1回だけ）──
-    if "loaded_from_ls" not in st.session_state:
-        st.session_state.loaded_from_ls = True
-        load_state_from_localStorage()
+    # ── セッションファイルからの復元（セッション開始時に1回だけ実行）──
+    # st.rerun() 後も session_state は保持されるため loaded_from_file フラグで制御。
+    # ブラウザ F5 リロード後は session_state がリセットされるためフラグもリセットされ、
+    # ファイルから正しく復元される。
+    if "loaded_from_file" not in st.session_state:
+        st.session_state.loaded_from_file = True
+        load_state()
 
-    # ── 修正: loaded_from_url フラグで1回だけ実行。st.rerun() 後も session_state は保持されるため再実行されない ──
+    # ── URL パラメータからの会話読み込み（セッション開始時に1回だけ）──
     if "loaded_from_url" not in st.session_state:
         st.session_state.loaded_from_url = True
         load_conversation_from_url()
@@ -1342,8 +1335,8 @@ def main():
 
     calc_and_display_costs()
 
-    # ── 毎 rerun の末尾で最新状態を localStorage に保存 ──
-    save_state_to_localStorage()
+    # ── 毎 rerun の末尾で最新状態をファイルに保存 ──
+    save_state()
 
 
 if __name__ == '__main__':
