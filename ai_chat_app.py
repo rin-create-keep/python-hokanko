@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import streamlit.components.v1 as components
 from openai import OpenAI
 import anthropic
 from google.genai import Client
@@ -999,10 +1000,96 @@ def display_chat_history_sidebar():
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
 
+# ===== localStorage永続化：保存すべきキー一覧 =====
+_PERSIST_KEYS = ["rooms", "current_room", "team_members", "chat_histories"]
+_LS_KEY = "mygreat_chatgpt_state"
+
+
+def _serialize_state() -> str:
+    """session_state の永続化対象データを JSON 文字列にシリアライズする。"""
+    data = {}
+    for k in _PERSIST_KEYS:
+        if k in st.session_state:
+            data[k] = st.session_state[k]
+    return json.dumps(data, ensure_ascii=False)
+
+
+def save_state_to_localStorage():
+    """
+    session_state の永続化対象データを localStorage に書き込む JS を注入する。
+    各 rerun の末尾で呼ぶことで常に最新状態を保存する。
+    """
+    serialized = _serialize_state()
+    # JSON 内のバッククォートをエスケープして JS テンプレートリテラルに埋め込む
+    safe = serialized.replace("\\", "\\\\").replace("`", "\\`")
+    js = f"""
+<script>
+(function() {{
+    try {{
+        localStorage.setItem("{_LS_KEY}", `{safe}`);
+    }} catch(e) {{
+        console.warn("localStorage write failed:", e);
+    }}
+}})();
+</script>
+"""
+    components.html(js, height=0)
+
+
+def load_state_from_localStorage():
+    """
+    localStorage からデータを読み込み、session_state に復元する JS + hidden input パターン。
+    Streamlit では JS から直接 Python 変数を書けないため、
+    st.query_params を経由する代わりに専用の hidden st.text_input を使う。
+
+    ※ この関数はセッション開始時（loaded_from_ls フラグがない場合）に1回だけ呼ぶ。
+    """
+    # Step 1: localStorage の値を hidden input に書き込む JS を注入
+    js_read = f"""
+<script>
+(function() {{
+    var val = localStorage.getItem("{_LS_KEY}");
+    if (val) {{
+        // Streamlit の hidden text_input に値をセットしてイベントを発火させる
+        var inputs = window.parent.document.querySelectorAll('input[data-testid="stTextInput"]');
+        for (var i = 0; i < inputs.length; i++) {{
+            if (inputs[i].getAttribute('aria-label') === '__ls_bridge__') {{
+                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype, 'value').set;
+                nativeInputValueSetter.call(inputs[i], val);
+                inputs[i].dispatchEvent(new Event('input', {{ bubbles: true }}));
+                break;
+            }}
+        }}
+    }}
+}})();
+</script>
+"""
+    components.html(js_read, height=0)
+
+    # Step 2: bridge 用 text_input（画面上に表示しない）
+    raw = st.text_input("__ls_bridge__", key="__ls_bridge__", label_visibility="collapsed")
+
+    # Step 3: 値があれば復元
+    if raw:
+        try:
+            data = json.loads(raw)
+            for k in _PERSIST_KEYS:
+                if k in data and k not in st.session_state:
+                    st.session_state[k] = data[k]
+        except Exception:
+            pass  # 壊れたデータは無視
+
+
 def main():
     init_page()
     init_task_assignment()
     init_rooms()
+
+    # ── localStorage からの復元（セッション開始時に1回だけ）──
+    if "loaded_from_ls" not in st.session_state:
+        st.session_state.loaded_from_ls = True
+        load_state_from_localStorage()
 
     # ── 修正: loaded_from_url フラグで1回だけ実行。st.rerun() 後も session_state は保持されるため再実行されない ──
     if "loaded_from_url" not in st.session_state:
@@ -1254,6 +1341,9 @@ def main():
             st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
 
     calc_and_display_costs()
+
+    # ── 毎 rerun の末尾で最新状態を localStorage に保存 ──
+    save_state_to_localStorage()
 
 
 if __name__ == '__main__':
