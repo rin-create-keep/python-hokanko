@@ -58,6 +58,7 @@ def init_page():
 # ===== 新機能1: タスク割り振り（修正: ルームごとに管理） =====
 def init_task_assignment():
     """タスク割り振り機能の初期化"""
+    # ★修正: すでに存在する場合は上書きしない
     if "team_members" not in st.session_state:
         st.session_state.team_members = []
     if "show_tasks" not in st.session_state:
@@ -375,6 +376,7 @@ def create_google_calendar_url(schedule):
 
 def display_schedule():
     """スケジュールを表示（ルームごと）"""
+    # ★修正: すでに存在する場合は上書きしない
     if "show_schedules" not in st.session_state:
         st.session_state.show_schedules = True
     
@@ -534,6 +536,7 @@ def generate_time_response(user_input):
 # ===== 新機能4: ルーム機能（修正版） =====
 def init_rooms():
     """ルーム機能の初期化"""
+    # ★修正: すでに存在する場合は上書きしない
     if "rooms" not in st.session_state:
         st.session_state.rooms = {
             "default": {
@@ -956,10 +959,21 @@ def init_messages():
             st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
         st.rerun()
     
+    # ★修正: message_history が存在しない場合のみ初期化
+    # 　　　 ルームの会話履歴がある場合はそちらを優先して復元する
     if "message_history" not in st.session_state:
-        st.session_state.message_history = [
-            ("system", "You are a helpful assistant.")
-        ]
+        current_room = st.session_state.get("current_room", "default")
+        if (
+            "rooms" in st.session_state
+            and current_room in st.session_state.rooms
+            and st.session_state.rooms[current_room].get("messages")
+        ):
+            # ルームに保存されているメッセージ履歴を復元
+            st.session_state.message_history = st.session_state.rooms[current_room]["messages"]
+        else:
+            st.session_state.message_history = [
+                ("system", "You are a helpful assistant.")
+            ]
 
 
 def select_model():
@@ -1198,6 +1212,7 @@ def main():
     init_rooms()
 
     # URL共有読み込み
+    # ★修正: loaded_from_url フラグで1度だけ実行し、以降は上書きしない
     if "loaded_from_url" not in st.session_state:
         st.session_state.loaded_from_url = True
         load_conversation_from_url()
@@ -1238,13 +1253,14 @@ def main():
                         key=f"download_sidebar_image_{room_id}"
                     )
     
-            # 履歴保存
+            # 履歴保存 & ルームの会話も更新
             st.session_state.message_history.append(
                 ("assistant", {
                     "type": "image",
                     "content": base64.b64encode(img_bytes).decode("utf-8")
                 })
             )
+            st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
             st.rerun()
 
     # ===== PDFから問題生成（修正: ルームごとにkey管理） =====
@@ -1271,6 +1287,8 @@ def main():
             st.session_state.message_history.append(
                 ("assistant", {"type": "text", "content": problems})
             )
+            # ★修正: ルームの会話も更新
+            st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
 
     # ===== 会話の共有 =====
     st.sidebar.markdown("---")
@@ -1307,10 +1325,11 @@ def main():
                 st.markdown("## 📝 生成された議事録")
                 st.markdown(minutes)
             
-                # チャット履歴に保存
+                # チャット履歴に保存 & ルームの会話も更新
                 st.session_state.message_history.append(
                     ("assistant", {"type": "minutes", "content": minutes})
                 )
+                st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
                 
                 # スケジュールへの転記（現在のルームに）
                 schedule_data = extract_schedule_from_minutes(minutes)
@@ -1382,7 +1401,7 @@ def main():
         key="image_uploader"
     )
     
-    # セッションステートで現在の画像を管理
+    # ★修正: セッションステートで現在の画像を管理（存在しない場合のみ初期化）
     if "current_uploaded_image" not in st.session_state:
         st.session_state.current_uploaded_image = None
     
@@ -1438,6 +1457,8 @@ def main():
                     "content": base64.b64encode(img_bytes).decode("utf-8")
                 })
             )
+            # ★修正: ルームの会話も更新
+            st.session_state.rooms[st.session_state.current_room]["messages"] = st.session_state.message_history
         
             st.rerun()
         
