@@ -112,10 +112,9 @@ def update_task(index, task_name=None, assignee=None, deadline=None, status=None
 def display_task_management():
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📋 タスク管理")
-    st.session_state.show_tasks = st.sidebar.checkbox(
+    st.sidebar.checkbox(
         "タスクを表示",
-        value=st.session_state.show_tasks,
-        key="toggle_tasks"
+        key="show_tasks"
     )
     if not st.session_state.show_tasks:
         return
@@ -326,10 +325,9 @@ def display_schedule():
         st.session_state.show_schedules = True
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📅 スケジュール")
-    st.session_state.show_schedules = st.sidebar.checkbox(
+    st.sidebar.checkbox(
         "スケジュールを表示",
-        value=st.session_state.show_schedules,
-        key="toggle_schedules"
+        key="show_schedules"
     )
     if not st.session_state.show_schedules:
         return
