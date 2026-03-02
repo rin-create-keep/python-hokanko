@@ -999,77 +999,68 @@ def display_chat_history_sidebar():
         st.sidebar.caption(f"{chat['timestamp']} | {chat['model']}")
 
 
+
 # =============================================================
-# ===== サーバーサイド永続化（セッションファイル）=====
-# ブラウザのリロード（F5）でも session_id が同じ限りデータを復元する。
-# Streamlit はブラウザリロード後も同一セッション内では同じ session_id を
-# 使い続けるため、/tmp に書き出したファイルから状態を復元できる。
+# ===== ファイルベース永続化 =====
+# F5リロード・ブラウザ閉じる・サーバー再起動後もデータを保持する。
+# app.py と同じディレクトリに app_state.json を保存する。
+# セッションIDはF5で変わるため使用せず、固定ファイル名を使う。
 # =============================================================
 _PERSIST_KEYS = ["rooms", "current_room", "team_members", "chat_histories"]
+_STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_state.json")
 
 
-def _get_session_id() -> str | None:
-    """現在の Streamlit セッション ID を返す。取得できない場合は None。"""
-    try:
-        from streamlit.runtime.scriptrunner import get_script_run_ctx
-        ctx = get_script_run_ctx()
-        return ctx.session_id if ctx else None
-    except Exception:
-        return None
-
-
-def _state_file(session_id: str) -> str:
-    """セッションごとの状態ファイルパスを返す。"""
-    return f"/tmp/mgchatgpt_{session_id}.json"
-
-
-def save_state(session_id: str | None = None) -> None:
+def _restore_message_tuples(data):
     """
-    永続化対象の session_state を JSON ファイルに書き出す。
+    JSON はタプルをリストとして復元するため、
+    rooms の messages と chat_histories の messages を
+    list[tuple] に変換し直す。
+    """
+    if "rooms" in data:
+        for room in data["rooms"].values():
+            if "messages" in room:
+                room["messages"] = [tuple(m) for m in room["messages"]]
+    if "chat_histories" in data:
+        for chat in data["chat_histories"]:
+            if "messages" in chat:
+                chat["messages"] = [tuple(m) for m in chat["messages"]]
+    return data
+
+
+def save_state() -> None:
+    """
+    永続化対象の session_state を固定 JSON ファイルに書き出す。
     毎 rerun の末尾で呼ぶことで常に最新状態を保存する。
     """
-    if session_id is None:
-        session_id = _get_session_id()
-    if session_id is None:
-        return
-
     data = {}
     for k in _PERSIST_KEYS:
         if k in st.session_state:
             data[k] = st.session_state[k]
-
     try:
-        with open(_state_file(session_id), "w", encoding="utf-8") as f:
+        with open(_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
     except Exception:
         pass  # 書き込み失敗は無視（機能には影響しない）
 
 
-def load_state(session_id: str | None = None) -> None:
+def load_state() -> None:
     """
-    JSON ファイルから session_state を復元する。
+    固定 JSON ファイルから session_state を復元する。
     session_state に既にキーが存在する場合は上書きしない。
-    セッション開始時（loaded_from_file フラグがない場合）に1回だけ呼ぶ。
+    F5リロード後は session_state がリセットされるため
+    loaded_from_file フラグもリセットされ、ここで正しく復元される。
     """
-    if session_id is None:
-        session_id = _get_session_id()
-    if session_id is None:
+    if not os.path.exists(_STATE_FILE):
         return
-
-    path = _state_file(session_id)
-    if not os.path.exists(path):
-        return
-
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(_STATE_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
+        data = _restore_message_tuples(data)
     except Exception:
         return  # 壊れたファイルは無視
-
     for k in _PERSIST_KEYS:
         if k in data and k not in st.session_state:
             st.session_state[k] = data[k]
-
 
 def main():
     init_page()
