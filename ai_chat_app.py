@@ -1064,16 +1064,20 @@ def load_state() -> None:
 
 def main():
     init_page()
-    init_task_assignment()
-    init_rooms()
 
-    # ── セッションファイルからの復元（セッション開始時に1回だけ実行）──
-    # st.rerun() 後も session_state は保持されるため loaded_from_file フラグで制御。
-    # ブラウザ F5 リロード後は session_state がリセットされるためフラグもリセットされ、
-    # ファイルから正しく復元される。
+    # ── ファイルからの復元を最初に実行 ──
+    # init_rooms() / init_task_assignment() より前に呼ぶことで、
+    # ファイルに保存済みの rooms / team_members が session_state に入り、
+    # 各 init_* 関数は「キーが既にある」と判断してデフォルト値で上書きしない。
+    # F5リロード後は session_state がリセットされるため
+    # loaded_from_file フラグもリセットされ、ここで正しく復元される。
     if "loaded_from_file" not in st.session_state:
         st.session_state.loaded_from_file = True
         load_state()
+
+    # ── ファイル復元後に各種初期化（未設定のキーのみデフォルト値をセット）──
+    init_task_assignment()
+    init_rooms()
 
     # ── URL パラメータからの会話読み込み（セッション開始時に1回だけ）──
     if "loaded_from_url" not in st.session_state:
