@@ -48,10 +48,10 @@ def get_message_counts(text: str) -> int:
 
 def init_page():
     st.set_page_config(
-        page_title="My Great ChatGPT",
-        page_icon="🤗"
+        page_title="Fusion AI Hub",
+        page_icon=None
     )
-    st.header("My Great ChatGPT 🤗")
+    st.header("Fusion AI Hub")
     st.sidebar.title("Options")
 
 
