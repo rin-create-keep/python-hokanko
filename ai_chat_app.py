@@ -127,8 +127,14 @@ def display_task_management():
                 st.rerun()
         if st.session_state.team_members:
             st.write("現在のメンバー:")
-            for member in st.session_state.team_members:
-                st.write(f"- {member}")
+            for i, member in enumerate(st.session_state.team_members):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"- {member}")
+                with col2:
+                    if st.button("❌", key=f"delete_member_{i}"):
+                        st.session_state.team_members.remove(member)
+                        st.rerun()
     with st.sidebar.expander("➕ 新規タスク追加"):
         task_name = st.text_input("タスク名", key="task_name")
         assignee = st.selectbox("担当者", st.session_state.team_members if st.session_state.team_members else ["メンバーを先に追加してください"], key="task_assignee")
