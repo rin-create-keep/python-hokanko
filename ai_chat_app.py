@@ -583,11 +583,18 @@ def display_room_management():
                     delete_room(st.session_state.current_room)
 
 
+def _get_room_histories():
+    """現在のルームの chat_histories リストを返す（なければ初期化して返す）。"""
+    room_id = st.session_state.get("current_room", "default")
+    room = st.session_state.get("rooms", {}).get(room_id, {})
+    if "chat_histories" not in room:
+        room["chat_histories"] = []
+    return room["chat_histories"]
+
+
 def save_chat_history():
     if "message_history" not in st.session_state or len(st.session_state.message_history) <= 1:
         return
-    if "chat_histories" not in st.session_state:
-        st.session_state.chat_histories = []
     title = "New Chat"
     for role, msg in st.session_state.message_history:
         if role == "user" and isinstance(msg, dict) and msg.get("type") == "text":
@@ -601,22 +608,25 @@ def save_chat_history():
         "messages": st.session_state.message_history.copy(),
         "model": st.session_state.get("model_name", "gpt-3.5-turbo")
     }
-    st.session_state.chat_histories.insert(0, chat_data)
-    if len(st.session_state.chat_histories) > 50:
-        st.session_state.chat_histories = st.session_state.chat_histories[:50]
+    histories = _get_room_histories()
+    histories.insert(0, chat_data)
+    if len(histories) > 50:
+        del histories[50:]
 
 
 def load_chat_history(index):
-    if "chat_histories" in st.session_state and 0 <= index < len(st.session_state.chat_histories):
-        chat_data = st.session_state.chat_histories[index]
+    histories = _get_room_histories()
+    if 0 <= index < len(histories):
+        chat_data = histories[index]
         st.session_state.message_history = chat_data["messages"].copy()
         st.session_state.model_name = chat_data.get("model", "gpt-3.5-turbo")
         st.rerun()
 
 
 def delete_chat_history(index):
-    if "chat_histories" in st.session_state and 0 <= index < len(st.session_state.chat_histories):
-        st.session_state.chat_histories.pop(index)
+    histories = _get_room_histories()
+    if 0 <= index < len(histories):
+        histories.pop(index)
         st.rerun()
 
 
@@ -990,9 +1000,10 @@ def calc_and_display_costs():
 def display_chat_history_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.markdown("## 📚 チャット履歴")
-    if "chat_histories" not in st.session_state:
+    histories = _get_room_histories()
+    if not histories:
         return
-    for i, chat in enumerate(st.session_state.chat_histories):
+    for i, chat in enumerate(histories):
         col1, col2 = st.sidebar.columns([3, 1])
         with col1:
             if st.button(f"📝 {chat['title']}", key=f"load_{i}"):
@@ -1010,24 +1021,25 @@ def display_chat_history_sidebar():
 # app.py と同じディレクトリに app_state.json を保存する。
 # セッションIDはF5で変わるため使用せず、固定ファイル名を使う。
 # =============================================================
-_PERSIST_KEYS = ["rooms", "current_room", "team_members", "chat_histories"]
+_PERSIST_KEYS = ["rooms", "current_room", "team_members"]
 _STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_state.json")
 
 
 def _restore_message_tuples(data):
     """
     JSON はタプルをリストとして復元するため、
-    rooms の messages と chat_histories の messages を
+    rooms の messages と rooms 内の chat_histories の messages を
     list[tuple] に変換し直す。
     """
     if "rooms" in data:
         for room in data["rooms"].values():
             if "messages" in room:
                 room["messages"] = [tuple(m) for m in room["messages"]]
-    if "chat_histories" in data:
-        for chat in data["chat_histories"]:
-            if "messages" in chat:
-                chat["messages"] = [tuple(m) for m in chat["messages"]]
+            # ルーム内チャット履歴のメッセージも復元
+            if "chat_histories" in room:
+                for chat in room["chat_histories"]:
+                    if "messages" in chat:
+                        chat["messages"] = [tuple(m) for m in chat["messages"]]
     return data
 
 
