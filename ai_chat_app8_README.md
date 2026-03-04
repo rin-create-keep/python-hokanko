@@ -1,94 +1,145 @@
-# My Great ChatGPT
+# Fusion AI Hub
 
-Streamlit を用いたマルチモデル対応チャットアプリケーションです。  
-GPT / Claude / Gemini に対応し、画像生成、音声文字起こし、議事録生成、PDF問題生成、タスク管理、スケジュール管理、ルーム機能などを統合しています。
+概要  
+Fusion AI Hub は、Streamlit 上で動作するマルチAI統合型チャットアプリケーションです。  
+OpenAI、Anthropic、Google Gemini の各モデルに対応し、チャット・画像生成・音声文字起こし・議事録作成・PDF問題生成・タスク管理・スケジュール管理・ルーム管理・会話共有などを一つのアプリに統合しています。
 
----
-
-## 主な機能
-
-### 1. マルチLLM対応
-- GPT-3.5 / GPT-4o
-- Claude 3.5 Haiku
-- Gemini Flash
-
-ストリーミング出力対応。
+会話、タスク、スケジュール、チャット履歴はファイルベースで永続化され、ブラウザのリロードやサーバー再起動後も状態を保持します。
 
 ---
 
-### 2. ルーム機能
-- ルームごとに会話履歴を管理
-- ルームごとにタスク・スケジュールを分離
-- メンバー追加・削除
-- ルーム削除・編集
+# 主な機能
+
+## 1. マルチモデル対応チャット
+
+・ GPT-3.5  
+・ GPT-4o  
+・ Claude 3.5 Sonnet（Haiku API指定）  
+・ Gemini Flash  
+
+ストリーミング出力対応  
+Temperature 調整可能  
+トークン数簡易計算によるコスト表示  
 
 ---
 
-### 3. タスク管理
-- メンバー単位でタスク割り振り
-- ステータス管理（未着手 / 進行中 / 完了）
-- 期限設定
-- ルームごとに独立管理
+## 2. ルーム管理機能
+
+・ 複数ルーム作成  
+・ ルームごとにメンバー管理  
+・ ルーム単位で会話・タスク・スケジュールを分離  
+・ ルーム編集 / 削除  
 
 ---
 
-### 4. スケジュール管理
-- 手動スケジュール追加
-- 議事録から自動抽出
-- Googleカレンダー連携URL生成
-- アクションアイテム自動タスク化
+## 3. タスク管理
+
+・ メンバー追加 / 削除  
+・ タスク新規作成  
+・ 担当者割り当て  
+・ 期限設定  
+・ ステータス管理（未着手 / 進行中 / 完了）  
+・ ルーム単位で独立管理  
 
 ---
 
-### 5. 音声議事録生成
-- 音声ファイルを文字起こし（Whisper）
-- 議事録自動生成
-- スケジュール抽出
-- タスク自動生成
-- ダウンロード機能
+## 4. スケジュール管理
+
+・ 手動スケジュール追加  
+・ 日時 / 場所 / 参加者設定  
+・ アクションアイテム管理  
+・ Googleカレンダー用URL自動生成  
+・ 議事録から自動抽出  
 
 ---
 
-### 6. PDFから問題生成
-- PDF内容を解析
-- 同種の練習問題を自動生成
+## 5. 音声議事録生成
+
+・ 音声ファイルアップロード  
+・ Whisperによる文字起こし  
+・ GPTによる議事録自動生成  
+・ スケジュール抽出  
+・ タスク自動生成  
+・ テキストダウンロード対応  
 
 ---
 
-### 7. 画像機能
-- テキストから画像生成
-- 画像アップロード対応
-- 画像内容説明
-- ダウンロード機能
+## 6. PDFから問題生成
+
+・ PDFアップロード  
+・ テキスト抽出  
+・ 元資料に基づいた同種問題を5問生成  
 
 ---
 
-### 8. 会話共有
-- 会話履歴をBase64圧縮
-- URLパラメータ共有
-- 最大文字数制限対応
+## 7. 画像機能
+
+・ テキストから画像生成（gpt-image-1）  
+・ 生成画像の表示・ダウンロード  
+・ アップロード画像を含めたチャット  
+・ 生成済み画像の内容説明  
 
 ---
 
-### 9. コスト計算
-- モデル別料金設定
-- 入力・出力トークン推定
-- セッションごとのコスト表示
+## 8. 会話共有機能
+
+・ 会話をBase64エンコード  
+・ URLパラメータで共有  
+・ 最大文字数制限による安全な共有  
 
 ---
 
-## 必要環境
+## 9. チャット履歴管理
 
-- Python 3.9+
-- Streamlit
-- OpenAI SDK
-- Anthropic SDK
-- Google Generative AI SDK
-- pypdf
+・ ルーム単位で履歴保存  
+・ 最大50件保存  
+・ 履歴ロード / 削除  
 
 ---
 
-## インストール
+## 10. ファイルベース永続化
+
+保存対象:
+・ rooms  
+・ current_room  
+・ team_members  
+
+保存先:
+app_state.json  
+
+F5リロード、ブラウザ再起動、サーバー再起動後もデータを保持します。
+
+---
+
+# コスト計算
+
+文字数 ÷ 4 でトークンを概算。  
+モデルごとに input / output 単価を設定。  
+
+Gemini は 128,000 トークン超過時に料金倍増計算。
+
+---
+
+# 動作環境
+
+Python 3.9以上  
+
+対応OS:
+・ Windows  
+・ macOS  
+・ Linux  
+
+必要ライブラリ:
+- streamlit  
+- openai  
+- anthropic  
+- google-generativeai  
+- pypdf  
+- python-dotenv
+
+---
+
+# インストール
 
 ```bash
 pip install streamlit openai anthropic google-generativeai pypdf python-dotenv
@@ -96,9 +147,9 @@ pip install streamlit openai anthropic google-generativeai pypdf python-dotenv
 
 ---
 
-## 環境変数設定
+# 環境変数設定
 
-`.env` または Streamlit Secrets に以下を設定してください。
+.env または Streamlit Secrets に以下を設定してください。
 
 ```
 OPENAI_API_KEY=your_openai_key
@@ -110,7 +161,7 @@ Streamlit Cloud 使用時は `secrets.toml` に設定してください。
 
 ---
 
-## 起動方法
+# 実行方法
 
 ```bash
 streamlit run app.py
@@ -118,54 +169,52 @@ streamlit run app.py
 
 ---
 
-## アーキテクチャ概要
+# データ構造概要
 
-- `session_state` を用いた状態管理
-- ルーム単位でデータ構造を分離
-- メッセージ形式は以下の辞書形式
-
-```python
-("assistant", {"type": "text", "content": "内容"})
-("assistant", {"type": "image", "content": "base64文字列"})
-("assistant", {"type": "minutes", "content": "議事録"})
-```
-
----
-
-## データ構造例
+## ルーム構造
 
 ```python
 rooms = {
-    "room_0": {
-        "name": "開発チーム",
-        "members": ["Alice", "Bob"],
+    "default": {
+        "name": "デフォルトルーム",
+        "members": [],
         "messages": [],
         "tasks": [],
-        "schedules": []
+        "schedules": [],
+        "chat_histories": []
     }
 }
 ```
 
----
+## メッセージ形式
 
-## コスト計算ロジック
-
-- 文字数 ÷ 4 で簡易トークン推定
-- モデルごとに単価設定
-- Geminiは128k超過時に料金倍増
-
----
-
-## 注意事項
-
-- APIキー未設定時は動作しません
-- Geminiは画像をBase64ではなく inline_data 形式で送信
-- Claudeは画像非対応
-- 共有URLは要約された会話のみ含まれます
+```python
+("assistant", {"type": "text", "content": "回答内容"})
+("assistant", {"type": "image", "content": "base64文字列"})
+("assistant", {"type": "minutes", "content": "議事録テキスト"})
+```
 
 ---
 
-## ライセンス
+# 注意事項
+
+・ APIキー未設定時は動作しません  
+・ Claudeは画像入力非対応  
+・ 共有URLには要約済みテキストのみ含まれます  
+・ 画像データはBase64形式で保存されます  
+
+---
+
+# 今後の拡張例
+
+・ データベース永続化  
+・ ユーザー認証機能  
+・ Slack連携  
+・ Google Calendar API直接連携  
+・ ベクトル検索による会話検索  
+
+---
+
+# ライセンス
 
 MIT License
-自由に改変・利用・再配布可能です。
